@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+    <h1>Settings</h1>
+    <form method="post" action="/settings">
+        <div class="form-grid">
+            <label>Firmanavn
+                <input type="text" name="company_name" value="{{ form_data.company_name }}" required>
+                {% if errors.company_name %}<span class="error">{{ errors.company_name }}</span>{% endif %}
+            </label>
+            <label>Org.nr
+                <input type="text" name="org_number" value="{{ form_data.org_number }}">
+                {% if errors.org_number %}<span class="error">{{ errors.org_number }}</span>{% endif %}
+            </label>
+            <label>Standardvaluta
+                <select name="default_currency">
+                    {% for currency in currencies %}
+                    <option value="{{ currency }}" {% if form_data.default_currency == currency %}selected{% endif %}>{{ currency }}</option>
+                    {% endfor %}
+                </select>
+                {% if errors.default_currency %}<span class="error">{{ errors.default_currency }}</span>{% endif %}
+            </label>
+            <label>Standard MVA-sats (%)
+                <input type="number" step="0.1" name="default_vat_rate" value="{{ form_data.default_vat_rate }}">
+                {% if errors.default_vat_rate %}<span class="error">{{ errors.default_vat_rate }}</span>{% endif %}
+            </label>
+            <label>Standard utgaende MVA-sats (%)
+                <input type="number" step="0.1" name="default_output_vat_rate" value="{{ form_data.default_output_vat_rate }}">
+                {% if errors.default_output_vat_rate %}<span class="error">{{ errors.default_output_vat_rate }}</span>{% endif %}
+            </label>
+            <label>Primaer inntektsmodell
+                <input type="text" name="primary_income_model" value="{{ form_data.primary_income_model }}">
+                {% if errors.primary_income_model %}<span class="error">{{ errors.primary_income_model }}</span>{% endif %}
+            </label>
+            <label>MVA-registrert fra dato
+                <input type="date" name="vat_registered_from" value="{{ form_data.vat_registered_from or '' }}">
+                {% if errors.vat_registered_from %}<span class="error">{{ errors.vat_registered_from }}</span>{% endif %}
+            </label>
+        </div>
+        <p class="hint">Typisk for "Eksport av digitale tjenester (Google Ireland)" er 0% utgaende MVA.</p>
+        <button type="submit">Lagre settings</button>
+    </form>
+</section>
+{% endblock %}

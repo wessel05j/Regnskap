@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+    <div class="header-row">
+        <h1>Inntekter</h1>
+        <a class="button" href="/incomes/new">Ny inntekt</a>
+    </div>
+    <form class="filter-grid" method="get" action="/incomes">
+        <label>Fra dato
+            <input type="date" name="start_date" value="{{ filters.start_date }}">
+        </label>
+        <label>Til dato
+            <input type="date" name="end_date" value="{{ filters.end_date }}">
+        </label>
+        <label>Sok
+            <input type="text" name="q" value="{{ filters.q }}" placeholder="Kilde/notat">
+        </label>
+        <button type="submit">Filtrer</button>
+    </form>
+</section>
+
+<section class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Dato</th>
+                <th>Kilde</th>
+                <th>Belop</th>
+                <th>NOK</th>
+                <th>Vedlegg</th>
+                <th>Handling</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.date }}</td>
+                <td>{{ row.source }}</td>
+                <td>{{ "%.2f"|format(row.amount_original) }} {{ row.currency }}</td>
+                <td>
+                    {% if row.amount_nok is not none %}
+                        {{ "%.2f"|format(row.amount_nok) }}
+                    {% else %}
+                        Mangler
+                    {% endif %}
+                </td>
+                <td>
+                    {% if row.attachment_stored_name %}
+                        <a href="/attachments/income/{{ row.id }}">Last ned</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="action-cell">
+                    <a href="/incomes/{{ row.id }}/edit">Rediger</a>
+                    <form method="post" action="/incomes/{{ row.id }}/delete">
+                        <button type="submit" class="danger">Slett</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6">Ingen inntekter funnet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

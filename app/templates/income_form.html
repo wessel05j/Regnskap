@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+    <h1>{% if mode == "edit" %}Rediger inntekt{% else %}Ny inntekt{% endif %}</h1>
+    <form method="post" enctype="multipart/form-data">
+        <div class="form-grid">
+            <label>Dato
+                <input type="date" name="date" value="{{ form_data.date }}" required>
+                {% if errors.date %}<span class="error">{{ errors.date }}</span>{% endif %}
+            </label>
+            <label>Belop (original)
+                <input type="number" step="0.01" name="amount_original" value="{{ form_data.amount_original }}" required>
+                {% if errors.amount_original %}<span class="error">{{ errors.amount_original }}</span>{% endif %}
+            </label>
+            <label>Valuta
+                <select name="currency" id="income-currency">
+                    {% for currency in currencies %}
+                    <option value="{{ currency }}" {% if form_data.currency == currency %}selected{% endif %}>{{ currency }}</option>
+                    {% endfor %}
+                </select>
+                {% if errors.currency %}<span class="error">{{ errors.currency }}</span>{% endif %}
+            </label>
+            <label>Belop i NOK (manuell)
+                <input type="number" step="0.01" name="amount_nok" value="{{ form_data.amount_nok }}">
+                {% if errors.amount_nok %}<span class="error">{{ errors.amount_nok }}</span>{% endif %}
+            </label>
+            <label>Valutakurs (valgfri, kun EUR/USD)
+                <input type="number" step="0.0001" min="0" name="exchange_rate" id="income-exchange-rate" value="{{ form_data.exchange_rate }}">
+                <span class="subtle">Brukes kun hvis du ikke fyller inn Belop i NOK manuelt.</span>
+                {% if errors.exchange_rate %}<span class="error">{{ errors.exchange_rate }}</span>{% endif %}
+            </label>
+            <label>Kilde
+                <input type="text" name="source" value="{{ form_data.source }}" placeholder="YouTube/Google AdSense eller Other" required>
+                {% if errors.source %}<span class="error">{{ errors.source }}</span>{% endif %}
+            </label>
+            <label>Notat
+                <textarea name="note">{{ form_data.note }}</textarea>
+                {% if errors.note %}<span class="error">{{ errors.note }}</span>{% endif %}
+            </label>
+            <label>Vedlegg (valgfritt)
+                <input type="file" name="attachment" accept=".pdf,.jpg,.jpeg,.png">
+            </label>
+        </div>
+        {% if income and income.attachment_stored_name %}
+            <p>Eksisterende vedlegg: <a href="/attachments/income/{{ income.id }}">Last ned</a></p>
+        {% endif %}
+        <div class="button-row">
+            <button type="submit">Lagre</button>
+            <a class="button secondary" href="/incomes">Avbryt</a>
+        </div>
+    </form>
+</section>
+<script>
+    (function () {
+        const currency = document.getElementById("income-currency");
+        const rate = document.getElementById("income-exchange-rate");
+        if (!currency || !rate) return;
+
+        function syncRateField() {
+            const isNok = currency.value === "NOK";
+            rate.disabled = isNok;
+            if (isNok) {
+                rate.value = "";
+                rate.placeholder = "Ikke nodvendig for NOK";
+            } else {
+                rate.placeholder = "";
+            }
+        }
+
+        currency.addEventListener("change", syncRateField);
+        syncRateField();
+    })();
+</script>
+{% endblock %}

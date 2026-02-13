@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+    <h1>Dashboard</h1>
+    <form class="inline-form" method="get" action="/">
+        <label for="year">Ar:</label>
+        <input id="year" type="number" name="year" min="1900" max="2100" value="{{ selected_year }}">
+        <button type="submit">Oppdater</button>
+    </form>
+</section>
+
+<section class="stats-grid">
+    <article class="stat card">
+        <h2>Inntekter (NOK)</h2>
+        <p>{{ "%.2f"|format(summary.income_total_nok) }}</p>
+    </article>
+    <article class="stat card">
+        <h2>Utgifter (NOK)</h2>
+        <p>{{ "%.2f"|format(summary.expense_total_nok) }}</p>
+    </article>
+    <article class="stat card">
+        <h2>Resultat (NOK)</h2>
+        <p>{{ "%.2f"|format(summary.result_nok) }}</p>
+    </article>
+    <article class="stat card">
+        <h2>Mangler NOK</h2>
+        <p>{{ summary.missing_nok_count }}</p>
+    </article>
+</section>
+
+<section class="card button-row">
+    <a class="button" href="/incomes/new">Ny inntekt</a>
+    <a class="button" href="/expenses/new">Ny utgift</a>
+    <a class="button" href="/reports">Lag MVA-rapport</a>
+    <a class="button" href="/reports">Lag arsrapport</a>
+</section>
+
+<section class="card">
+    <h2>Siste 10 transaksjoner</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Dato</th>
+                <th>Type</th>
+                <th>Motpart</th>
+                <th>Belop</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tx in latest_transactions %}
+            <tr>
+                <td>{{ tx.date }}</td>
+                <td>{{ tx.type }}</td>
+                <td>{{ tx.counterparty }}</td>
+                <td>
+                    {% if tx.amount_nok is not none %}
+                        {{ "%.2f"|format(tx.amount_nok) }} NOK
+                    {% else %}
+                        {{ "%.2f"|format(tx.amount_original) }} {{ tx.currency }} (mangler NOK)
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4">Ingen transaksjoner enda.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

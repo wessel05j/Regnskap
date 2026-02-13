@@ -1,0 +1,255 @@
+:root {
+    --bg: #f4f1ea;
+    --surface: #fffdf8;
+    --ink: #1e2430;
+    --accent: #106f63;
+    --accent-soft: #d8efe9;
+    --border: #d8d0c1;
+    --danger: #c53030;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+    color: var(--ink);
+    background: radial-gradient(circle at top left, #fef6e9 0%, var(--bg) 45%, #edf3f2 100%);
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+
+.brand {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.nav {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.nav a {
+    text-decoration: none;
+    color: var(--ink);
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+
+.nav a.active,
+.nav a:hover {
+    background: var(--accent-soft);
+    color: #083d37;
+}
+
+.container {
+    max-width: 1150px;
+    margin: 18px auto 40px;
+    padding: 0 14px;
+}
+
+.disclaimer {
+    background: #fff4d8;
+    border: 1px solid #f0d68f;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 14px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+}
+
+.stat h2 {
+    margin: 0 0 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.stat p {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.button-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+button,
+.button {
+    background: var(--accent);
+    color: #fff;
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.button.secondary {
+    background: #6b7280;
+}
+
+button:hover,
+.button:hover {
+    opacity: 0.92;
+}
+
+button.danger {
+    background: var(--danger);
+}
+
+.inline-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filter-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    align-items: end;
+}
+
+.filter-grid > label {
+    min-width: 0;
+}
+
+.form-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.form-grid > label {
+    min-width: 0;
+}
+
+label {
+    display: grid;
+    gap: 6px;
+    font-weight: 600;
+}
+
+input,
+textarea,
+select {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font: inherit;
+    background: #fff;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+textarea {
+    min-height: 80px;
+}
+
+input[type="file"] {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+th,
+td {
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    padding: 8px 6px;
+}
+
+.action-cell {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.action-cell form {
+    margin: 0;
+}
+
+.error {
+    color: var(--danger);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.hint {
+    background: #e8f4f2;
+    border: 1px solid #c9e2dd;
+    padding: 8px 10px;
+    border-radius: 8px;
+}
+
+.subtle {
+    color: #5b6472;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+.filter-grid > button {
+    width: 100%;
+}
+
+@media (max-width: 700px) {
+    .topbar {
+        padding: 12px 14px;
+    }
+
+    .container {
+        margin-top: 12px;
+    }
+
+    table {
+        font-size: 0.87rem;
+    }
+
+    .action-cell {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

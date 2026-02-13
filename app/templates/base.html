@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ settings.company_name }} - Mini Regnskap</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">{{ settings.company_name }}</div>
+        <nav class="nav">
+            <a href="/" class="{% if active_nav == 'dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="/incomes" class="{% if active_nav == 'incomes' %}active{% endif %}">Inntekter</a>
+            <a href="/expenses" class="{% if active_nav == 'expenses' %}active{% endif %}">Utgifter</a>
+            <a href="/reports" class="{% if active_nav == 'reports' %}active{% endif %}">Rapporter</a>
+            <a href="/settings" class="{% if active_nav == 'settings' %}active{% endif %}">Settings</a>
+        </nav>
+    </header>
+
+    <main class="container">
+        <div class="disclaimer">{{ disclaimer }}</div>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+    <h1>{% if mode == "edit" %}Rediger utgift{% else %}Ny utgift{% endif %}</h1>
+    <form method="post" enctype="multipart/form-data">
+        <div class="form-grid">
+            <label>Dato
+                <input type="date" name="date" value="{{ form_data.date }}" required>
+                {% if errors.date %}<span class="error">{{ errors.date }}</span>{% endif %}
+            </label>
+            <label>Leverandor/forhandler
+                <input type="text" name="vendor" value="{{ form_data.vendor }}" required>
+                {% if errors.vendor %}<span class="error">{{ errors.vendor }}</span>{% endif %}
+            </label>
+            <label>Kategori
+                <select name="category">
+                    {% for category in categories %}
+                    <option value="{{ category }}" {% if form_data.category == category %}selected{% endif %}>{{ category }}</option>
+                    {% endfor %}
+                </select>
+                {% if errors.category %}<span class="error">{{ errors.category }}</span>{% endif %}
+            </label>
+            <label>Belop (inkl mva)
+                <input type="number" step="0.01" name="amount_original" value="{{ form_data.amount_original }}" required>
+                {% if errors.amount_original %}<span class="error">{{ errors.amount_original }}</span>{% endif %}
+            </label>
+            <label>Valuta
+                <select name="currency" id="expense-currency">
+                    {% for currency in currencies %}
+                    <option value="{{ currency }}" {% if form_data.currency == currency %}selected{% endif %}>{{ currency }}</option>
+                    {% endfor %}
+                </select>
+                {% if errors.currency %}<span class="error">{{ errors.currency }}</span>{% endif %}
+            </label>
+            <label>Belop i NOK (manuell)
+                <input type="number" step="0.01" name="amount_nok" value="{{ form_data.amount_nok }}">
+                {% if errors.amount_nok %}<span class="error">{{ errors.amount_nok }}</span>{% endif %}
+            </label>
+            <label>Valutakurs (valgfri, kun EUR/USD)
+                <input type="number" step="0.0001" min="0" name="exchange_rate" id="expense-exchange-rate" value="{{ form_data.exchange_rate }}">
+                <span class="subtle">Brukes kun hvis du ikke fyller inn Belop i NOK manuelt.</span>
+                {% if errors.exchange_rate %}<span class="error">{{ errors.exchange_rate }}</span>{% endif %}
+            </label>
+            <label>MVA pa kjopet
+                <input type="number" step="0.01" name="vat_amount" value="{{ form_data.vat_amount }}">
+                {% if errors.vat_amount %}<span class="error">{{ errors.vat_amount }}</span>{% endif %}
+            </label>
+            <label>Betalingsmate
+                <select name="payment_method">
+                    {% for payment_method in payment_methods %}
+                    <option value="{{ payment_method }}" {% if form_data.payment_method == payment_method %}selected{% endif %}>{{ payment_method }}</option>
+                    {% endfor %}
+                </select>
+                {% if errors.payment_method %}<span class="error">{{ errors.payment_method }}</span>{% endif %}
+            </label>
+            <label>Notat
+                <textarea name="note">{{ form_data.note }}</textarea>
+                {% if errors.note %}<span class="error">{{ errors.note }}</span>{% endif %}
+            </label>
+            <label>Vedlegg (PDF/JPG/PNG)
+                <input type="file" name="attachment" accept=".pdf,.jpg,.jpeg,.png">
+            </label>
+        </div>
+        {% if expense and expense.attachment_stored_name %}
+            <p>Eksisterende vedlegg: <a href="/attachments/expense/{{ expense.id }}">Last ned</a></p>
+        {% endif %}
+        <div class="button-row">
+            <button type="submit">Lagre</button>
+            <a class="button secondary" href="/expenses">Avbryt</a>
+        </div>
+    </form>
+</section>
+<script>
+    (function () {
+        const currency = document.getElementById("expense-currency");
+        const rate = document.getElementById("expense-exchange-rate");
+        if (!currency || !rate) return;
+
+        function syncRateField() {
+            const isNok = currency.value === "NOK";
+            rate.disabled = isNok;
+            if (isNok) {
+                rate.value = "";
+                rate.placeholder = "Ikke nodvendig for NOK";
+            } else {
+                rate.placeholder = "";
+            }
+        }
+
+        currency.addEventListener("change", syncRateField);
+        syncRateField();
+    })();
+</script>
+{% endblock %}
