@@ -6,7 +6,7 @@
 </section>
 
 <section class="card">
-    <h2>A) Arsoversikt</h2>
+    <h2>A) Arsoversikt (fra hovedbok)</h2>
     <form class="inline-form" method="post" action="/reports/yearly">
         <label for="yearly-year">Ar:</label>
         <input id="yearly-year" type="number" name="year" min="1900" max="2100" value="{{ selected_year }}">
@@ -15,27 +15,99 @@
     <p>Inntekter (NOK): {{ "%.2f"|format(year_data.income_total_nok) }}</p>
     <p>Utgifter (NOK): {{ "%.2f"|format(year_data.expense_total_nok) }}</p>
     <p>Resultat (NOK): {{ "%.2f"|format(year_data.result_nok) }}</p>
-    <p>Mangler NOK-omregning: {{ year_data.missing_nok_count }}</p>
 </section>
 
 <section class="card">
-    <h2>B) MVA-terminrapport</h2>
-    <form class="inline-form" method="post" action="/reports/mva">
+    <h2>B) MVA-spesifikasjon / MVA-termin</h2>
+    <form class="inline-form" method="get" action="/reports">
         <label for="term-year">Ar:</label>
         <input id="term-year" type="number" name="year" min="1900" max="2100" value="{{ selected_year }}">
         <label for="term-index">Termin:</label>
         <select id="term-index" name="term">
-            {% for idx, term in terms %}
-                <option value="{{ idx }}" {% if idx == selected_term %}selected{% endif %}>{{ term.label }}</option>
+            {% for idx, label in terms %}
+                <option value="{{ idx }}" {% if idx == selected_term %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
-        <button type="submit">Generer MVA-rapport PDF</button>
+        <button type="submit">Oppdater visning</button>
     </form>
-    <p>Utgaende MVA-sats fra settings: {{ "%.2f"|format(output_rate) }}%</p>
-    <p>Omsetning (NOK): {{ "%.2f"|format(term_data.turnover_nok) }}</p>
-    <p>Utgaende MVA (NOK): {{ "%.2f"|format(term_data.output_vat) }}</p>
-    <p>Inngaende MVA (NOK): {{ "%.2f"|format(term_data.input_vat) }}</p>
-    <p>Netto (Inngaende - Utgaende): {{ "%.2f"|format(term_data.net_vat_input_minus_output) }}</p>
-    <p>Netto (Utgaende - Inngaende): {{ "%.2f"|format(term_data.net_vat_output_minus_input) }}</p>
+    <div class="button-row">
+        <form method="post" action="/reports/mva">
+            <input type="hidden" name="year" value="{{ selected_year }}">
+            <input type="hidden" name="term" value="{{ selected_term }}">
+            <button type="submit">PDF</button>
+        </form>
+        <form method="post" action="/reports/mva/json">
+            <input type="hidden" name="year" value="{{ selected_year }}">
+            <input type="hidden" name="term" value="{{ selected_term }}">
+            <button type="submit">JSON</button>
+        </form>
+        <form method="post" action="/reports/mva/csv">
+            <input type="hidden" name="year" value="{{ selected_year }}">
+            <input type="hidden" name="term" value="{{ selected_term }}">
+            <button type="submit">CSV</button>
+        </form>
+    </div>
+    <p>Periode: {{ vat_data.start_date }} til {{ vat_data.end_date }}</p>
+    <p>Totalt grunnlag: {{ vat_data.totals.grunnlag_nok }} NOK</p>
+    <p>Total MVA: {{ vat_data.totals.merverdiavgift_nok }} NOK</p>
+    <p>Valideringsfeil: {{ vat_data.validation_errors|length }}</p>
+    <table>
+        <thead>
+            <tr>
+                <th>mvaKode</th>
+                <th>Sats</th>
+                <th>Grunnlag (NOK)</th>
+                <th>MVA (NOK)</th>
+                <th>Drilldown</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in vat_data.lines %}
+            <tr>
+                <td>{{ line.mvaKode }}</td>
+                <td>{% if line.sats is not none %}{{ "%.2f"|format(line.sats * 100) }}%{% else %}-{% endif %}</td>
+                <td>{{ line.grunnlag_nok }}</td>
+                <td>{{ line.merverdiavgift_nok }}</td>
+                <td><a href="/reports/mva/drilldown?year={{ selected_year }}&term={{ selected_term }}&mva_code={{ line.mvaKode }}">JSON</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5">Ingen mva-linjer i valgt termin.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<section class="card">
+    <h2>C) Bokforingsspesifikasjon</h2>
+    <div class="button-row">
+        <form class="inline-form" method="post" action="/reports/journal/pdf">
+            <label>Fra <input type="date" name="start_date" value="{{ vat_data.start_date }}"></label>
+            <label>Til <input type="date" name="end_date" value="{{ vat_data.end_date }}"></label>
+            <button type="submit">PDF</button>
+        </form>
+        <form class="inline-form" method="post" action="/reports/journal/csv">
+            <input type="hidden" name="start_date" value="{{ vat_data.start_date }}">
+            <input type="hidden" name="end_date" value="{{ vat_data.end_date }}">
+            <button type="submit">CSV</button>
+        </form>
+    </div>
+</section>
+
+<section class="card">
+    <h2>D) Kontospesifikasjon</h2>
+    <div class="button-row">
+        <form class="inline-form" method="post" action="/reports/accounts/pdf">
+            <label>Fra <input type="date" name="start_date" value="{{ vat_data.start_date }}"></label>
+            <label>Til <input type="date" name="end_date" value="{{ vat_data.end_date }}"></label>
+            <label>Konto <input type="text" name="account_no" placeholder="f.eks. 3000"></label>
+            <button type="submit">PDF</button>
+        </form>
+        <form class="inline-form" method="post" action="/reports/accounts/csv">
+            <input type="hidden" name="start_date" value="{{ vat_data.start_date }}">
+            <input type="hidden" name="end_date" value="{{ vat_data.end_date }}">
+            <input type="hidden" name="account_no" value="">
+            <button type="submit">CSV (alle kontoer)</button>
+        </form>
+    </div>
 </section>
 {% endblock %}

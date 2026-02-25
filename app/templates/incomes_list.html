@@ -3,8 +3,10 @@
 <section class="card">
     <div class="header-row">
         <h1>Inntekter</h1>
-        <a class="button" href="/incomes/new">Ny inntekt</a>
     </div>
+    {% if legacy_read_only %}
+        <p class="hint">Legacy-data er skrivebeskyttet. Bruk <a href="/vouchers/new">Ny voucher</a> for nye posteringer.</p>
+    {% endif %}
     <form class="filter-grid" method="get" action="/incomes">
         <label>Fra dato
             <input type="date" name="start_date" value="{{ filters.start_date }}">
@@ -28,7 +30,6 @@
                 <th>Belop</th>
                 <th>NOK</th>
                 <th>Vedlegg</th>
-                <th>Handling</th>
             </tr>
         </thead>
         <tbody>
@@ -51,15 +52,9 @@
                         -
                     {% endif %}
                 </td>
-                <td class="action-cell">
-                    <a href="/incomes/{{ row.id }}/edit">Rediger</a>
-                    <form method="post" action="/incomes/{{ row.id }}/delete">
-                        <button type="submit" class="danger">Slett</button>
-                    </form>
-                </td>
             </tr>
             {% else %}
-            <tr><td colspan="6">Ingen inntekter funnet.</td></tr>
+            <tr><td colspan="5">Ingen inntekter funnet.</td></tr>
             {% endfor %}
         </tbody>
     </table>

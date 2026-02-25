@@ -1,18 +1,22 @@
 from __future__ import annotations
 
+import csv
+import hashlib
+import json
 import logging
+import mimetypes
 from datetime import date
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
-from app import crud, db, pdf_reports, schemas
-from app.utils import MAX_ATTACHMENT_SIZE, TERM_RANGES, parse_float, sanitize_filename
+from app import auth, crud, db, ledger, migrate_legacy, pdf_reports, schemas, vat_engine
+from app.utils import MAX_ATTACHMENT_SIZE, parse_float, sanitize_filename
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -21,6 +25,7 @@ app = FastAPI(title="Mini Regnskap ENK")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 LOGGER = logging.getLogger("regnskap")
+PUBLIC_PATHS = {"/login", "/bootstrap-admin"}
 
 
 def setup_logging() -> None:
@@ -39,6 +44,30 @@ def startup() -> None:
     LOGGER.info("Systemet startet")
 
 
+@app.middleware("http")
+async def enforce_authentication(request: Request, call_next):  # type: ignore[override]
+    path = request.url.path
+    if path.startswith("/static"):
+        return await call_next(request)
+
+    has_users = auth.has_any_users()
+    if not has_users and path != "/bootstrap-admin":
+        return RedirectResponse("/bootstrap-admin", status_code=303)
+
+    if path in PUBLIC_PATHS:
+        return await call_next(request)
+
+    token = request.cookies.get("session_token")
+    user = auth.get_user_by_session_token(token)
+    if user is None:
+        if request.method.upper() == "GET":
+            return RedirectResponse("/login", status_code=303)
+        return JSONResponse(status_code=401, content={"detail": "Ikke autentisert"})
+
+    request.state.user = user
+    return await call_next(request)
+
+
 def today_iso() -> str:
     return date.today().isoformat()
 
@@ -55,57 +84,436 @@ def form_errors(exc: ValidationError) -> dict[str, str]:
     return result
 
 
+def current_actor(request: Request) -> str:
+    user = getattr(request.state, "user", None)
+    if user is None:
+        return "system"
+    return str(user.get("username") or "system")
+
+
+def require_admin(request: Request) -> None:
+    user = getattr(request.state, "user", None)
+    if not user or not bool(user.get("is_admin")):
+        raise HTTPException(status_code=403, detail="Admin-rettigheter kreves")
+
+
+def available_years_from_vouchers() -> list[int]:
+    current_year = date.today().year
+    conn = db.get_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT CAST(strftime('%Y', posting_date) AS INTEGER) AS year_value
+            FROM vouchers
+            ORDER BY year_value DESC
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+    years = [int(row["year_value"]) for row in rows if row["year_value"] is not None]
+    if current_year not in years:
+        years.append(current_year)
+    return sorted(set(years), reverse=True)
+
+
 def base_context(request: Request, active_nav: str) -> dict:
     return {
         "request": request,
         "active_nav": active_nav,
         "settings": crud.get_settings(),
-        "disclaimer": "Dette er intern oversikt og ikke offisiell innsending.",
+        "disclaimer": "Internt system. Data er bokforingsgrunnlag, men ingen Altinn-innsending skjer automatisk.",
+        "current_user": getattr(request.state, "user", None),
     }
 
 
-async def save_attachment(upload: UploadFile | None) -> tuple[str | None, str | None]:
+async def save_bilag(upload: UploadFile | None, actor: str) -> int | None:
     if upload is None or not upload.filename:
-        return None, None
+        return None
 
     payload = await upload.read()
     if len(payload) > MAX_ATTACHMENT_SIZE:
         raise HTTPException(status_code=400, detail="Vedlegg overstiger 10MB grense")
 
     original_name = sanitize_filename(upload.filename)
-    suffix = Path(original_name).suffix
+    suffix = Path(original_name).suffix.lower()
     allowed_suffixes = {".pdf", ".jpg", ".jpeg", ".png"}
-    if suffix.lower() not in allowed_suffixes:
+    if suffix not in allowed_suffixes:
         raise HTTPException(status_code=400, detail="Ugyldig filtype. Tillatt: PDF, JPG, JPEG, PNG")
-    stored_name = f"{uuid4().hex}{suffix.lower()}"
+
+    stored_name = f"{uuid4().hex}{suffix}"
     file_path = db.ATTACHMENTS_DIR / stored_name
     file_path.write_bytes(payload)
-    return stored_name, original_name
+
+    mime_type = upload.content_type or mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
+    sha256 = hashlib.sha256(payload).hexdigest()
+
+    conn = db.get_connection()
+    try:
+        cursor = conn.execute(
+            """
+            INSERT INTO bilag_files (
+                stored_name, original_name, mime_type, file_size, sha256, uploaded_by
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (stored_name, original_name, mime_type, len(payload), sha256, actor),
+        )
+        conn.commit()
+        return int(cursor.lastrowid)
+    finally:
+        conn.close()
 
 
-def remove_attachment(stored_name: str | None) -> None:
-    if not stored_name:
-        return
-    file_path = db.ATTACHMENTS_DIR / stored_name
-    if file_path.exists():
-        file_path.unlink(missing_ok=True)
+def write_csv_file(path: Path, header: list[str], rows: list[list[str]]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.writer(fh, delimiter=";")
+        writer.writerow(header)
+        writer.writerows(rows)
+    return path
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request) -> HTMLResponse:
+    context = {"request": request, "error": ""}
+    return templates.TemplateResponse("login.html", context)
+
+
+@app.post("/login", response_class=HTMLResponse)
+def login_submit(request: Request, username: str = Form(...), password: str = Form(...)) -> HTMLResponse:
+    user = auth.authenticate_user(username, password)
+    if user is None:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "Feil brukernavn eller passord"},
+            status_code=401,
+        )
+    session_token = auth.create_session(user_id=int(user["id"]))
+    response = RedirectResponse("/", status_code=303)
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+    )
+    return response
+
+
+@app.get("/bootstrap-admin", response_class=HTMLResponse)
+def bootstrap_admin_page(request: Request) -> HTMLResponse:
+    if auth.has_any_users():
+        return RedirectResponse("/login", status_code=303)
+    return templates.TemplateResponse("bootstrap_admin.html", {"request": request, "error": ""})
+
+
+@app.post("/bootstrap-admin", response_class=HTMLResponse)
+def bootstrap_admin_submit(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    password_confirm: str = Form(...),
+) -> HTMLResponse:
+    if auth.has_any_users():
+        return RedirectResponse("/login", status_code=303)
+    if password != password_confirm:
+        return templates.TemplateResponse(
+            "bootstrap_admin.html",
+            {"request": request, "error": "Passordene er ikke like"},
+            status_code=422,
+        )
+    try:
+        user_id = auth.create_user(username=username, password=password, is_admin=True)
+    except auth.AuthError as exc:
+        return templates.TemplateResponse(
+            "bootstrap_admin.html",
+            {"request": request, "error": str(exc)},
+            status_code=422,
+        )
+    session_token = auth.create_session(user_id=user_id)
+    response = RedirectResponse("/", status_code=303)
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+    )
+    return response
+
+
+@app.post("/logout")
+def logout(request: Request) -> RedirectResponse:
+    token = request.cookies.get("session_token")
+    if token:
+        auth.clear_session(token)
+    response = RedirectResponse("/login", status_code=303)
+    response.delete_cookie("session_token")
+    return response
 
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, year: str | None = None) -> HTMLResponse:
     selected_year = crud.parse_year(year)
-    summary = crud.get_dashboard_summary(selected_year)
-    latest = crud.list_latest_transactions(10)
+    yearly = ledger.yearly_report_data_from_ledger(selected_year)
+    latest_vouchers = ledger.list_vouchers(limit=10)
+    latest_transactions = [
+        {
+            "date": row["posting_date"],
+            "type": row["voucher_type"],
+            "counterparty": row["counterparty_name"] or "-",
+            "amount_nok": float(row["total_nok"]),
+            "amount_original": float(row["total_nok"]),
+            "currency": "NOK",
+        }
+        for row in latest_vouchers
+    ]
     context = base_context(request, active_nav="dashboard")
     context.update(
         {
             "selected_year": selected_year,
-            "years": crud.available_years(),
-            "summary": summary,
-            "latest_transactions": latest,
+            "years": available_years_from_vouchers(),
+            "summary": {
+                "income_total_nok": yearly["income_total_nok"],
+                "expense_total_nok": yearly["expense_total_nok"],
+                "result_nok": yearly["result_nok"],
+                "missing_nok_count": 0,
+            },
+            "latest_transactions": latest_transactions,
         }
     )
     return templates.TemplateResponse("dashboard.html", context)
+
+
+@app.get("/vouchers", response_class=HTMLResponse)
+def vouchers_list(
+    request: Request,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    voucher_type: str | None = None,
+) -> HTMLResponse:
+    rows = ledger.list_vouchers(start_date=start_date, end_date=end_date, voucher_type=voucher_type)
+    context = base_context(request, active_nav="vouchers")
+    context.update(
+        {
+            "rows": rows,
+            "filters": {
+                "start_date": start_date or "",
+                "end_date": end_date or "",
+                "voucher_type": voucher_type or "",
+            },
+        }
+    )
+    return templates.TemplateResponse("vouchers_list.html", context)
+
+
+@app.get("/vouchers/new", response_class=HTMLResponse)
+def vouchers_new(request: Request) -> HTMLResponse:
+    context = base_context(request, active_nav="vouchers")
+    context.update(
+        {
+            "form_data": {
+                "voucher_type": "manual",
+                "document_date": today_iso(),
+                "posting_date": today_iso(),
+                "counterparty_name": "",
+                "counterparty_id": "",
+                "currency": "NOK",
+                "exchange_rate": "",
+                "description": "",
+                "series": "A",
+                "status": "posted",
+                "lines_json": json.dumps(
+                    [
+                        {"account_no": "1920", "debit_nok": 1000, "credit_nok": 0, "description": "Bank"},
+                        {"account_no": "3100", "debit_nok": 0, "credit_nok": 1000, "description": "Salg"},
+                    ],
+                    indent=2,
+                    ensure_ascii=False,
+                ),
+            },
+            "errors": {},
+            "accounts": ledger.list_accounts(active_only=True),
+        }
+    )
+    return templates.TemplateResponse("voucher_form.html", context)
+
+
+@app.post("/vouchers/new", response_class=HTMLResponse)
+async def vouchers_create(
+    request: Request,
+    voucher_type: str = Form("manual"),
+    document_date: str = Form(...),
+    posting_date: str = Form(...),
+    counterparty_name: str = Form(""),
+    counterparty_id: str = Form(""),
+    currency: str = Form("NOK"),
+    exchange_rate: str = Form(""),
+    description: str = Form(""),
+    series: str = Form("A"),
+    status: str = Form("posted"),
+    lines_json: str = Form(...),
+    attachment: UploadFile | None = File(default=None),
+) -> HTMLResponse:
+    actor = current_actor(request)
+    errors: dict[str, str] = {}
+    try:
+        lines = json.loads(lines_json)
+        if not isinstance(lines, list):
+            raise ValueError("lines_json ma vaere en JSON-liste")
+    except (ValueError, json.JSONDecodeError):
+        errors["lines_json"] = "Ugyldig JSON-format for linjer."
+        lines = []
+
+    bilag_id = None
+    if not errors:
+        bilag_id = await save_bilag(attachment, actor=actor)
+
+    if not errors:
+        try:
+            voucher_id = ledger.create_voucher(
+                actor=actor,
+                voucher_type=voucher_type.strip() or "manual",
+                document_date=document_date,
+                posting_date=posting_date,
+                counterparty_name=counterparty_name,
+                counterparty_id=counterparty_id,
+                currency=currency,
+                exchange_rate=parse_float(exchange_rate),
+                description=description,
+                bilag_id=bilag_id,
+                lines=lines,
+                series=series.strip() or "A",
+                status=status,
+            )
+            LOGGER.info("Ny voucher registrert id=%s", voucher_id)
+            return RedirectResponse(f"/vouchers/{voucher_id}", status_code=303)
+        except ledger.LedgerError as exc:
+            errors["ledger"] = str(exc)
+
+    context = base_context(request, active_nav="vouchers")
+    context.update(
+        {
+            "form_data": {
+                "voucher_type": voucher_type,
+                "document_date": document_date,
+                "posting_date": posting_date,
+                "counterparty_name": counterparty_name,
+                "counterparty_id": counterparty_id,
+                "currency": currency,
+                "exchange_rate": exchange_rate,
+                "description": description,
+                "series": series,
+                "status": status,
+                "lines_json": lines_json,
+            },
+            "errors": errors,
+            "accounts": ledger.list_accounts(active_only=True),
+        }
+    )
+    return templates.TemplateResponse("voucher_form.html", context, status_code=422)
+
+
+@app.get("/vouchers/{voucher_id}", response_class=HTMLResponse)
+def voucher_detail(request: Request, voucher_id: int) -> HTMLResponse:
+    voucher = ledger.get_voucher(voucher_id)
+    if voucher is None:
+        raise HTTPException(status_code=404, detail="Voucher ikke funnet")
+    context = base_context(request, active_nav="vouchers")
+    context.update({"voucher": voucher})
+    return templates.TemplateResponse("voucher_detail.html", context)
+
+
+@app.get("/vouchers/{voucher_id}/correct", response_class=HTMLResponse)
+def voucher_correct_page(request: Request, voucher_id: int) -> HTMLResponse:
+    voucher = ledger.get_voucher(voucher_id)
+    if voucher is None:
+        raise HTTPException(status_code=404, detail="Voucher ikke funnet")
+    prefilled_lines = [
+        {
+            "account_no": line["account_no"],
+            "debit_nok": int(line["debit_nok"]),
+            "credit_nok": int(line["credit_nok"]),
+            "description": line["description"] or "",
+            "vat_mva_code": line["vat_mva_code"],
+            "vat_rate": line["vat_rate"],
+            "vat_base_nok": line["vat_base_nok"],
+            "vat_amount_nok": line["vat_amount_nok"],
+            "bilag_id": line["bilag_id"],
+        }
+        for line in voucher["lines"]
+    ]
+    context = base_context(request, active_nav="vouchers")
+    context.update(
+        {
+            "voucher": voucher,
+            "form_data": {
+                "reason": "",
+                "posting_date": today_iso(),
+                "document_date": today_iso(),
+                "lines_json": json.dumps(prefilled_lines, indent=2, ensure_ascii=False),
+            },
+            "errors": {},
+        }
+    )
+    return templates.TemplateResponse("voucher_correct.html", context)
+
+
+@app.post("/vouchers/{voucher_id}/correct", response_class=HTMLResponse)
+def voucher_correct_submit(
+    request: Request,
+    voucher_id: int,
+    reason: str = Form(...),
+    posting_date: str = Form(...),
+    document_date: str = Form(...),
+    lines_json: str = Form(...),
+) -> HTMLResponse:
+    voucher = ledger.get_voucher(voucher_id)
+    if voucher is None:
+        raise HTTPException(status_code=404, detail="Voucher ikke funnet")
+
+    errors: dict[str, str] = {}
+    try:
+        lines = json.loads(lines_json)
+        if not isinstance(lines, list):
+            raise ValueError("lines_json ma vaere liste")
+    except (ValueError, json.JSONDecodeError):
+        lines = []
+        errors["lines_json"] = "Ugyldig JSON-format for linjer."
+
+    if not errors:
+        try:
+            result = ledger.create_correction(
+                actor=current_actor(request),
+                original_voucher_id=voucher_id,
+                corrected_lines=lines,
+                reason=reason,
+                correction_posting_date=posting_date,
+                correction_document_date=document_date,
+            )
+            LOGGER.info(
+                "Korreksjon opprettet for voucher=%s reversal=%s corrected=%s",
+                voucher_id,
+                result["reversal_voucher_id"],
+                result["corrected_voucher_id"],
+            )
+            return RedirectResponse(f"/vouchers/{result['corrected_voucher_id']}", status_code=303)
+        except ledger.LedgerError as exc:
+            errors["ledger"] = str(exc)
+
+    context = base_context(request, active_nav="vouchers")
+    context.update(
+        {
+            "voucher": voucher,
+            "form_data": {
+                "reason": reason,
+                "posting_date": posting_date,
+                "document_date": document_date,
+                "lines_json": lines_json,
+            },
+            "errors": errors,
+        }
+    )
+    return templates.TemplateResponse("voucher_correct.html", context, status_code=422)
 
 
 @app.get("/incomes", response_class=HTMLResponse)
@@ -120,184 +528,11 @@ def incomes_list(
     context.update(
         {
             "rows": rows,
+            "legacy_read_only": True,
             "filters": {"start_date": start_date or "", "end_date": end_date or "", "q": q or ""},
         }
     )
     return templates.TemplateResponse("incomes_list.html", context)
-
-
-@app.get("/incomes/new", response_class=HTMLResponse)
-def income_new(request: Request) -> HTMLResponse:
-    context = base_context(request, active_nav="incomes")
-    context.update(
-        {
-            "mode": "create",
-            "form_data": {
-                "date": today_iso(),
-                "amount_original": "",
-                "currency": "NOK",
-                "amount_nok": "",
-                "exchange_rate": "",
-                "source": "YouTube/Google AdSense",
-                "note": "",
-            },
-            "errors": {},
-            "currencies": enum_values(schemas.Currency),
-            "income": None,
-        }
-    )
-    return templates.TemplateResponse("income_form.html", context)
-
-
-@app.post("/incomes/new", response_class=HTMLResponse)
-async def income_create(
-    request: Request,
-    date_value: str = Form(alias="date"),
-    amount_original: str = Form(...),
-    currency: str = Form(...),
-    amount_nok: str = Form(""),
-    exchange_rate: str = Form(""),
-    source: str = Form(...),
-    note: str = Form(""),
-    attachment: UploadFile | None = File(default=None),
-) -> HTMLResponse:
-    data = {
-        "date": date_value,
-        "amount_original": parse_float(amount_original),
-        "currency": currency,
-        "amount_nok": parse_float(amount_nok),
-        "exchange_rate": parse_float(exchange_rate),
-        "source": source,
-        "note": note,
-    }
-
-    try:
-        payload = schemas.IncomeInput.model_validate(data)
-        stored_name, original_name = await save_attachment(attachment)
-        crud.create_income(payload, stored_name, original_name)
-        LOGGER.info("Ny inntekt registrert")
-        return RedirectResponse("/incomes", status_code=303)
-    except ValidationError as exc:
-        context = base_context(request, active_nav="incomes")
-        context.update(
-            {
-                "mode": "create",
-                "form_data": {
-                    "date": date_value,
-                    "amount_original": amount_original,
-                    "currency": currency,
-                    "amount_nok": amount_nok,
-                    "exchange_rate": exchange_rate,
-                    "source": source,
-                    "note": note,
-                },
-                "errors": form_errors(exc),
-                "currencies": enum_values(schemas.Currency),
-                "income": None,
-            }
-        )
-        return templates.TemplateResponse("income_form.html", context, status_code=422)
-
-
-@app.get("/incomes/{income_id}/edit", response_class=HTMLResponse)
-def income_edit(request: Request, income_id: int) -> HTMLResponse:
-    income = crud.get_income(income_id)
-    if income is None:
-        raise HTTPException(status_code=404, detail="Inntekt ikke funnet")
-
-    context = base_context(request, active_nav="incomes")
-    context.update(
-        {
-            "mode": "edit",
-            "form_data": {
-                "date": income["date"],
-                "amount_original": income["amount_original"],
-                "currency": income["currency"],
-                "amount_nok": income["amount_nok"] if income["amount_nok"] is not None else "",
-                "exchange_rate": income["exchange_rate"] if income["exchange_rate"] is not None else "",
-                "source": income["source"],
-                "note": income["note"] or "",
-            },
-            "errors": {},
-            "currencies": enum_values(schemas.Currency),
-            "income": income,
-        }
-    )
-    return templates.TemplateResponse("income_form.html", context)
-
-
-@app.post("/incomes/{income_id}/edit", response_class=HTMLResponse)
-async def income_update(
-    request: Request,
-    income_id: int,
-    date_value: str = Form(alias="date"),
-    amount_original: str = Form(...),
-    currency: str = Form(...),
-    amount_nok: str = Form(""),
-    exchange_rate: str = Form(""),
-    source: str = Form(...),
-    note: str = Form(""),
-    attachment: UploadFile | None = File(default=None),
-) -> HTMLResponse:
-    income = crud.get_income(income_id)
-    if income is None:
-        raise HTTPException(status_code=404, detail="Inntekt ikke funnet")
-
-    data = {
-        "date": date_value,
-        "amount_original": parse_float(amount_original),
-        "currency": currency,
-        "amount_nok": parse_float(amount_nok),
-        "exchange_rate": parse_float(exchange_rate),
-        "source": source,
-        "note": note,
-    }
-
-    try:
-        payload = schemas.IncomeInput.model_validate(data)
-        new_stored, new_original = await save_attachment(attachment)
-        keep_existing = new_stored is None
-        if not keep_existing:
-            remove_attachment(income["attachment_stored_name"])
-        crud.update_income(
-            income_id=income_id,
-            payload=payload,
-            attachment_stored_name=new_stored,
-            attachment_original_name=new_original,
-            keep_existing_attachment=keep_existing,
-        )
-        LOGGER.info("Inntekt oppdatert id=%s", income_id)
-        return RedirectResponse("/incomes", status_code=303)
-    except ValidationError as exc:
-        context = base_context(request, active_nav="incomes")
-        context.update(
-            {
-                "mode": "edit",
-                "form_data": {
-                    "date": date_value,
-                    "amount_original": amount_original,
-                    "currency": currency,
-                    "amount_nok": amount_nok,
-                    "exchange_rate": exchange_rate,
-                    "source": source,
-                    "note": note,
-                },
-                "errors": form_errors(exc),
-                "currencies": enum_values(schemas.Currency),
-                "income": income,
-            }
-        )
-        return templates.TemplateResponse("income_form.html", context, status_code=422)
-
-
-@app.post("/incomes/{income_id}/delete")
-def income_delete(income_id: int) -> RedirectResponse:
-    income = crud.get_income(income_id)
-    if income:
-        remove_attachment(income["attachment_stored_name"])
-    crud.delete_income(income_id)
-    LOGGER.info("Inntekt slettet id=%s", income_id)
-    return RedirectResponse("/incomes", status_code=303)
 
 
 @app.get("/expenses", response_class=HTMLResponse)
@@ -313,6 +548,7 @@ def expenses_list(
     context.update(
         {
             "rows": rows,
+            "legacy_read_only": True,
             "filters": {
                 "start_date": start_date or "",
                 "end_date": end_date or "",
@@ -325,231 +561,79 @@ def expenses_list(
     return templates.TemplateResponse("expenses_list.html", context)
 
 
-@app.get("/expenses/new", response_class=HTMLResponse)
-def expense_new(request: Request) -> HTMLResponse:
-    context = base_context(request, active_nav="expenses")
-    context.update(
-        {
-            "mode": "create",
-            "form_data": {
-                "date": today_iso(),
-                "vendor": "",
-                "category": schemas.ExpenseCategory.OTHER.value,
-                "amount_original": "",
-                "currency": "NOK",
-                "amount_nok": "",
-                "exchange_rate": "",
-                "vat_amount": "",
-                "payment_method": schemas.PaymentMethod.CARD.value,
-                "note": "",
-            },
-            "errors": {},
-            "currencies": enum_values(schemas.Currency),
-            "categories": enum_values(schemas.ExpenseCategory),
-            "payment_methods": enum_values(schemas.PaymentMethod),
-            "expense": None,
-        }
-    )
-    return templates.TemplateResponse("expense_form.html", context)
+def _legacy_write_blocked() -> None:
+    raise HTTPException(status_code=403, detail="Legacy-tabeller er skrivebeskyttet etter ledger-migrering.")
 
 
-@app.post("/expenses/new", response_class=HTMLResponse)
-async def expense_create(
-    request: Request,
-    date_value: str = Form(alias="date"),
-    vendor: str = Form(...),
-    category: str = Form(...),
-    amount_original: str = Form(...),
-    currency: str = Form(...),
-    amount_nok: str = Form(""),
-    exchange_rate: str = Form(""),
-    vat_amount: str = Form(""),
-    payment_method: str = Form(...),
-    note: str = Form(""),
-    attachment: UploadFile | None = File(default=None),
-) -> HTMLResponse:
-    data = {
-        "date": date_value,
-        "vendor": vendor,
-        "category": category,
-        "amount_original": parse_float(amount_original),
-        "currency": currency,
-        "amount_nok": parse_float(amount_nok),
-        "exchange_rate": parse_float(exchange_rate),
-        "vat_amount": parse_float(vat_amount),
-        "payment_method": payment_method,
-        "note": note,
-    }
-
-    try:
-        payload = schemas.ExpenseInput.model_validate(data)
-        stored_name, original_name = await save_attachment(attachment)
-        crud.create_expense(payload, stored_name, original_name)
-        LOGGER.info("Ny utgift registrert")
-        return RedirectResponse("/expenses", status_code=303)
-    except ValidationError as exc:
-        context = base_context(request, active_nav="expenses")
-        context.update(
-            {
-                "mode": "create",
-                "form_data": {
-                    "date": date_value,
-                    "vendor": vendor,
-                    "category": category,
-                    "amount_original": amount_original,
-                    "currency": currency,
-                    "amount_nok": amount_nok,
-                    "exchange_rate": exchange_rate,
-                    "vat_amount": vat_amount,
-                    "payment_method": payment_method,
-                    "note": note,
-                },
-                "errors": form_errors(exc),
-                "currencies": enum_values(schemas.Currency),
-                "categories": enum_values(schemas.ExpenseCategory),
-                "payment_methods": enum_values(schemas.PaymentMethod),
-                "expense": None,
-            }
-        )
-        return templates.TemplateResponse("expense_form.html", context, status_code=422)
+@app.get("/incomes/new")
+def income_new_blocked() -> None:
+    _legacy_write_blocked()
 
 
-@app.get("/expenses/{expense_id}/edit", response_class=HTMLResponse)
-def expense_edit(request: Request, expense_id: int) -> HTMLResponse:
-    expense = crud.get_expense(expense_id)
-    if expense is None:
-        raise HTTPException(status_code=404, detail="Utgift ikke funnet")
-
-    context = base_context(request, active_nav="expenses")
-    context.update(
-        {
-            "mode": "edit",
-            "form_data": {
-                "date": expense["date"],
-                "vendor": expense["vendor"],
-                "category": expense["category"],
-                "amount_original": expense["amount_original"],
-                "currency": expense["currency"],
-                "amount_nok": expense["amount_nok"] if expense["amount_nok"] is not None else "",
-                "exchange_rate": expense["exchange_rate"] if expense["exchange_rate"] is not None else "",
-                "vat_amount": expense["vat_amount"] if expense["vat_amount"] is not None else "",
-                "payment_method": expense["payment_method"],
-                "note": expense["note"] or "",
-            },
-            "errors": {},
-            "currencies": enum_values(schemas.Currency),
-            "categories": enum_values(schemas.ExpenseCategory),
-            "payment_methods": enum_values(schemas.PaymentMethod),
-            "expense": expense,
-        }
-    )
-    return templates.TemplateResponse("expense_form.html", context)
+@app.post("/incomes/new")
+def income_create_blocked() -> None:
+    _legacy_write_blocked()
 
 
-@app.post("/expenses/{expense_id}/edit", response_class=HTMLResponse)
-async def expense_update(
-    request: Request,
-    expense_id: int,
-    date_value: str = Form(alias="date"),
-    vendor: str = Form(...),
-    category: str = Form(...),
-    amount_original: str = Form(...),
-    currency: str = Form(...),
-    amount_nok: str = Form(""),
-    exchange_rate: str = Form(""),
-    vat_amount: str = Form(""),
-    payment_method: str = Form(...),
-    note: str = Form(""),
-    attachment: UploadFile | None = File(default=None),
-) -> HTMLResponse:
-    expense = crud.get_expense(expense_id)
-    if expense is None:
-        raise HTTPException(status_code=404, detail="Utgift ikke funnet")
+@app.get("/incomes/{income_id}/edit")
+def income_edit_blocked(income_id: int) -> None:  # noqa: ARG001
+    _legacy_write_blocked()
 
-    data = {
-        "date": date_value,
-        "vendor": vendor,
-        "category": category,
-        "amount_original": parse_float(amount_original),
-        "currency": currency,
-        "amount_nok": parse_float(amount_nok),
-        "exchange_rate": parse_float(exchange_rate),
-        "vat_amount": parse_float(vat_amount),
-        "payment_method": payment_method,
-        "note": note,
-    }
 
-    try:
-        payload = schemas.ExpenseInput.model_validate(data)
-        new_stored, new_original = await save_attachment(attachment)
-        keep_existing = new_stored is None
-        if not keep_existing:
-            remove_attachment(expense["attachment_stored_name"])
-        crud.update_expense(
-            expense_id=expense_id,
-            payload=payload,
-            attachment_stored_name=new_stored,
-            attachment_original_name=new_original,
-            keep_existing_attachment=keep_existing,
-        )
-        LOGGER.info("Utgift oppdatert id=%s", expense_id)
-        return RedirectResponse("/expenses", status_code=303)
-    except ValidationError as exc:
-        context = base_context(request, active_nav="expenses")
-        context.update(
-            {
-                "mode": "edit",
-                "form_data": {
-                    "date": date_value,
-                    "vendor": vendor,
-                    "category": category,
-                    "amount_original": amount_original,
-                    "currency": currency,
-                    "amount_nok": amount_nok,
-                    "exchange_rate": exchange_rate,
-                    "vat_amount": vat_amount,
-                    "payment_method": payment_method,
-                    "note": note,
-                },
-                "errors": form_errors(exc),
-                "currencies": enum_values(schemas.Currency),
-                "categories": enum_values(schemas.ExpenseCategory),
-                "payment_methods": enum_values(schemas.PaymentMethod),
-                "expense": expense,
-            }
-        )
-        return templates.TemplateResponse("expense_form.html", context, status_code=422)
+@app.post("/incomes/{income_id}/edit")
+def income_update_blocked(income_id: int) -> None:  # noqa: ARG001
+    _legacy_write_blocked()
+
+
+@app.post("/incomes/{income_id}/delete")
+def income_delete_blocked(income_id: int) -> None:  # noqa: ARG001
+    _legacy_write_blocked()
+
+
+@app.get("/expenses/new")
+def expense_new_blocked() -> None:
+    _legacy_write_blocked()
+
+
+@app.post("/expenses/new")
+def expense_create_blocked() -> None:
+    _legacy_write_blocked()
+
+
+@app.get("/expenses/{expense_id}/edit")
+def expense_edit_blocked(expense_id: int) -> None:  # noqa: ARG001
+    _legacy_write_blocked()
+
+
+@app.post("/expenses/{expense_id}/edit")
+def expense_update_blocked(expense_id: int) -> None:  # noqa: ARG001
+    _legacy_write_blocked()
 
 
 @app.post("/expenses/{expense_id}/delete")
-def expense_delete(expense_id: int) -> RedirectResponse:
-    expense = crud.get_expense(expense_id)
-    if expense:
-        remove_attachment(expense["attachment_stored_name"])
-    crud.delete_expense(expense_id)
-    LOGGER.info("Utgift slettet id=%s", expense_id)
-    return RedirectResponse("/expenses", status_code=303)
+def expense_delete_blocked(expense_id: int) -> None:  # noqa: ARG001
+    _legacy_write_blocked()
 
 
 @app.get("/reports", response_class=HTMLResponse)
 def reports_page(request: Request, year: str | None = None, term: str | None = None) -> HTMLResponse:
     selected_year = crud.parse_year(year)
-    selected_term = crud.parse_term(term)
-    settings = crud.get_settings()
-    output_rate = float(settings.get("default_output_vat_rate") or 0.0)
-    year_data = crud.yearly_report_data(selected_year)
-    term_data = crud.term_report_data(selected_year, selected_term, outgoing_vat_rate_percent=output_rate)
-
+    try:
+        selected_term = crud.parse_term(term)
+    except Exception:
+        selected_term = 1
+    year_data = ledger.yearly_report_data_from_ledger(selected_year)
+    vat_data = vat_engine.aggregate_vat_term(selected_year, selected_term)
     context = base_context(request, active_nav="reports")
     context.update(
         {
-            "years": crud.available_years(),
+            "years": available_years_from_vouchers(),
             "selected_year": selected_year,
             "selected_term": selected_term,
-            "terms": list(enumerate(TERM_RANGES, start=1)),
+            "terms": vat_engine.term_choices(),
             "year_data": year_data,
-            "term_data": term_data,
-            "output_rate": output_rate,
+            "vat_data": vat_data,
+            "today_iso": today_iso(),
         }
     )
     return templates.TemplateResponse("reports.html", context)
@@ -558,7 +642,7 @@ def reports_page(request: Request, year: str | None = None, term: str | None = N
 @app.post("/reports/yearly")
 def reports_yearly(year: int = Form(...)) -> FileResponse:
     settings = crud.get_settings()
-    data = crud.yearly_report_data(year)
+    data = ledger.yearly_report_data_from_ledger(year)
     output = pdf_reports.yearly_report_output_path(year, crud.format_now_for_filename())
     pdf_reports.generate_yearly_report_pdf(data, settings, output)
     LOGGER.info("Arsrapport generert for ar=%s", year)
@@ -566,21 +650,163 @@ def reports_yearly(year: int = Form(...)) -> FileResponse:
 
 
 @app.post("/reports/mva")
-def reports_term(
-    year: int = Form(...),
-    term: int = Form(...),
-) -> FileResponse:
+def reports_term_pdf(year: int = Form(...), term: int = Form(...)) -> FileResponse:
     settings = crud.get_settings()
-    output_rate = float(settings.get("default_output_vat_rate") or 0.0)
-    data = crud.term_report_data(year=year, term_index=term, outgoing_vat_rate_percent=output_rate)
+    data = vat_engine.aggregate_vat_term(year, term)
     output = pdf_reports.term_report_output_path(year, term, crud.format_now_for_filename())
     pdf_reports.generate_term_report_pdf(data, settings, output)
     LOGGER.info("MVA-rapport generert for ar=%s termin=%s", year, term)
     return FileResponse(path=output, filename=output.name, media_type="application/pdf")
 
 
+@app.post("/reports/mva/json")
+def reports_term_json(year: int = Form(...), term: int = Form(...)) -> FileResponse:
+    output = vat_engine.export_vat_term_dataset_json(year, term, db.REPORTS_DIR)
+    return FileResponse(path=output, filename=output.name, media_type="application/json")
+
+
+@app.post("/reports/mva/csv")
+def reports_term_csv(year: int = Form(...), term: int = Form(...)) -> FileResponse:
+    dataset = vat_engine.aggregate_vat_term(year, term)
+    filename = f"mva_spes_{year}_t{term}_{crud.format_now_for_filename()}.csv"
+    output = db.REPORTS_DIR / filename
+    rows = [
+        [
+            str(line["mvaKode"]),
+            "" if line["sats"] is None else f"{line['sats'] * 100:.2f}",
+            str(int(line["grunnlag_nok"])),
+            str(int(line["merverdiavgift_nok"])),
+        ]
+        for line in dataset["lines"]
+    ]
+    write_csv_file(output, ["mvaKode", "sats_prosent", "grunnlag_nok", "merverdiavgift_nok"], rows)
+    return FileResponse(path=output, filename=output.name, media_type="text/csv")
+
+
+@app.get("/reports/mva/drilldown")
+def reports_term_drilldown(year: int, term: int, mva_code: str) -> JSONResponse:
+    dataset = vat_engine.aggregate_vat_term(year, term)
+    matched = [line for line in dataset["lines"] if line["mvaKode"] == mva_code]
+    if not matched:
+        raise HTTPException(status_code=404, detail="Fant ingen linjer for valgt mvaKode")
+    return JSONResponse({"year": year, "term": term, "mva_code": mva_code, "lines": matched})
+
+
+@app.post("/reports/journal/pdf")
+def reports_journal_pdf(start_date: str = Form(...), end_date: str = Form(...)) -> FileResponse:
+    settings = crud.get_settings()
+    rows = ledger.journal_specification(start_date, end_date)
+    output = pdf_reports.journal_report_output_path(start_date, end_date, crud.format_now_for_filename())
+    pdf_reports.generate_journal_pdf(rows, settings, output, start_date=start_date, end_date=end_date)
+    return FileResponse(path=output, filename=output.name, media_type="application/pdf")
+
+
+@app.post("/reports/journal/csv")
+def reports_journal_csv(start_date: str = Form(...), end_date: str = Form(...)) -> FileResponse:
+    rows = ledger.journal_specification(start_date, end_date)
+    output = db.REPORTS_DIR / f"bokforing_{start_date}_{end_date}_{crud.format_now_for_filename()}.csv"
+    csv_rows = [
+        [
+            row["posting_date"],
+            f"{row['voucher_series']}-{row['voucher_no']}",
+            str(row["line_no"]),
+            row["account_no"],
+            row["account_name"],
+            str(row["debit_nok"]),
+            str(row["credit_nok"]),
+            row["line_description"] or "",
+            row["vat_mva_code"] or "",
+            "" if row["vat_rate"] is None else f"{float(row['vat_rate']) * 100:.2f}",
+            "" if row["vat_base_nok"] is None else str(row["vat_base_nok"]),
+            "" if row["vat_amount_nok"] is None else str(row["vat_amount_nok"]),
+        ]
+        for row in rows
+    ]
+    write_csv_file(
+        output,
+        [
+            "posting_date",
+            "voucher_ref",
+            "line_no",
+            "account_no",
+            "account_name",
+            "debit_nok",
+            "credit_nok",
+            "description",
+            "mva_code",
+            "vat_rate_percent",
+            "vat_base_nok",
+            "vat_amount_nok",
+        ],
+        csv_rows,
+    )
+    return FileResponse(path=output, filename=output.name, media_type="text/csv")
+
+
+@app.post("/reports/accounts/pdf")
+def reports_account_pdf(
+    start_date: str = Form(...),
+    end_date: str = Form(...),
+    account_no: str = Form(""),
+) -> FileResponse:
+    settings = crud.get_settings()
+    rows = ledger.account_specification(start_date, end_date, account_no.strip() or None)
+    output = pdf_reports.account_report_output_path(start_date, end_date, crud.format_now_for_filename())
+    pdf_reports.generate_account_spec_pdf(
+        rows,
+        settings,
+        output,
+        start_date=start_date,
+        end_date=end_date,
+        account_no=account_no.strip() or None,
+    )
+    return FileResponse(path=output, filename=output.name, media_type="application/pdf")
+
+
+@app.post("/reports/accounts/csv")
+def reports_account_csv(
+    start_date: str = Form(...),
+    end_date: str = Form(...),
+    account_no: str = Form(""),
+) -> FileResponse:
+    rows = ledger.account_specification(start_date, end_date, account_no.strip() or None)
+    output = db.REPORTS_DIR / f"kontospes_{start_date}_{end_date}_{crud.format_now_for_filename()}.csv"
+    csv_rows = [
+        [
+            row["account_no"],
+            row["account_name"],
+            row["posting_date"],
+            f"{row['voucher_series']}-{row['voucher_no']}",
+            str(row["line_no"]),
+            str(row["debit_nok"]),
+            str(row["credit_nok"]),
+            str(row["running_balance_nok"]),
+            row["line_description"] or "",
+        ]
+        for row in rows
+    ]
+    write_csv_file(
+        output,
+        [
+            "account_no",
+            "account_name",
+            "posting_date",
+            "voucher_ref",
+            "line_no",
+            "debit_nok",
+            "credit_nok",
+            "running_balance_nok",
+            "description",
+        ],
+        csv_rows,
+    )
+    return FileResponse(path=output, filename=output.name, media_type="text/csv")
+
+
 @app.get("/settings", response_class=HTMLResponse)
-def settings_page(request: Request) -> HTMLResponse:
+def settings_page(request: Request, year: str | None = None) -> HTMLResponse:
+    selected_year = crud.parse_year(year)
+    terms = ledger.list_terms(selected_year)
     current = crud.get_settings()
     context = base_context(request, active_nav="settings")
     context.update(
@@ -588,6 +814,9 @@ def settings_page(request: Request) -> HTMLResponse:
             "form_data": current,
             "errors": {},
             "currencies": enum_values(schemas.Currency),
+            "selected_year": selected_year,
+            "term_rows": terms,
+            "years": available_years_from_vouchers(),
         }
     )
     return templates.TemplateResponse("settings.html", context)
@@ -620,19 +849,45 @@ def settings_update(
         LOGGER.info("Settings oppdatert")
         return RedirectResponse("/settings", status_code=303)
     except ValidationError as exc:
+        selected_year = date.today().year
         context = base_context(request, active_nav="settings")
         context.update(
             {
                 "form_data": input_data,
                 "errors": form_errors(exc),
                 "currencies": enum_values(schemas.Currency),
+                "selected_year": selected_year,
+                "term_rows": ledger.list_terms(selected_year),
+                "years": available_years_from_vouchers(),
             }
         )
         return templates.TemplateResponse("settings.html", context, status_code=422)
 
 
+@app.post("/settings/lock-term")
+def lock_term(
+    request: Request,
+    year: int = Form(...),
+    term: int = Form(...),
+) -> RedirectResponse:
+    require_admin(request)
+    actor = current_actor(request)
+    ledger.lock_term(year=year, term_index=term, actor=actor)
+    LOGGER.info("Termin last year=%s term=%s by=%s", year, term, actor)
+    return RedirectResponse(f"/settings?year={year}", status_code=303)
+
+
+@app.post("/settings/run-legacy-migration")
+def run_legacy_migration(request: Request) -> RedirectResponse:
+    require_admin(request)
+    actor = current_actor(request)
+    result = migrate_legacy.run_legacy_migration(actor=actor)
+    LOGGER.info("Legacy-migrering utfort av=%s resultat=%s", actor, result)
+    return RedirectResponse("/settings", status_code=303)
+
+
 @app.get("/attachments/{kind}/{item_id}")
-def get_attachment(kind: str, item_id: int) -> FileResponse:
+def get_legacy_attachment(kind: str, item_id: int) -> FileResponse:
     if kind == "income":
         row = crud.get_income(item_id)
     elif kind == "expense":
@@ -651,4 +906,24 @@ def get_attachment(kind: str, item_id: int) -> FileResponse:
         path=file_path,
         filename=row.get("attachment_original_name") or row["attachment_stored_name"],
         media_type="application/octet-stream",
+    )
+
+
+@app.get("/bilag/{bilag_id}")
+def get_bilag(bilag_id: int) -> FileResponse:
+    conn = db.get_connection()
+    try:
+        row = conn.execute("SELECT * FROM bilag_files WHERE id = ?", (bilag_id,)).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Bilag ikke funnet")
+
+    file_path = db.ATTACHMENTS_DIR / row["stored_name"]
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Bilag mangler pa disk")
+    return FileResponse(
+        path=file_path,
+        filename=row["original_name"],
+        media_type=row["mime_type"] or "application/octet-stream",
     )

@@ -9,17 +9,25 @@
 <body>
     <header class="topbar">
         <div class="brand">{{ settings.company_name }}</div>
-        <nav class="nav">
-            <a href="/" class="{% if active_nav == 'dashboard' %}active{% endif %}">Dashboard</a>
-            <a href="/incomes" class="{% if active_nav == 'incomes' %}active{% endif %}">Inntekter</a>
-            <a href="/expenses" class="{% if active_nav == 'expenses' %}active{% endif %}">Utgifter</a>
-            <a href="/reports" class="{% if active_nav == 'reports' %}active{% endif %}">Rapporter</a>
-            <a href="/settings" class="{% if active_nav == 'settings' %}active{% endif %}">Settings</a>
-        </nav>
+        {% if current_user %}
+            <nav class="nav">
+                <a href="/" class="{% if active_nav == 'dashboard' %}active{% endif %}">Dashboard</a>
+                <a href="/vouchers" class="{% if active_nav == 'vouchers' %}active{% endif %}">Vouchers</a>
+                <a href="/reports" class="{% if active_nav == 'reports' %}active{% endif %}">Rapporter</a>
+                <a href="/settings" class="{% if active_nav == 'settings' %}active{% endif %}">Settings</a>
+                <a href="/incomes" class="{% if active_nav == 'incomes' %}active{% endif %}">Legacy inntekter</a>
+                <a href="/expenses" class="{% if active_nav == 'expenses' %}active{% endif %}">Legacy utgifter</a>
+            </nav>
+            <form method="post" action="/logout">
+                <button type="submit">Logg ut ({{ current_user.username }})</button>
+            </form>
+        {% endif %}
     </header>
 
     <main class="container">
-        <div class="disclaimer">{{ disclaimer }}</div>
+        {% if disclaimer %}
+            <div class="disclaimer">{{ disclaimer }}</div>
+        {% endif %}
         {% block content %}{% endblock %}
     </main>
 </body>

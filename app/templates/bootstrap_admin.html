@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bootstrap admin - Mini Regnskap</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <main class="container">
+        <section class="card" style="max-width: 520px; margin: 60px auto;">
+            <h1>Opprett lokal admin</h1>
+            <p>Dette ma gjores en gang per database.</p>
+            <form method="post" action="/bootstrap-admin">
+                <label>Brukernavn
+                    <input type="text" name="username" required minlength="3">
+                </label>
+                <label>Passord
+                    <input type="password" name="password" required minlength="8">
+                </label>
+                <label>Gjenta passord
+                    <input type="password" name="password_confirm" required minlength="8">
+                </label>
+                {% if error %}
+                    <p class="error">{{ error }}</p>
+                {% endif %}
+                <button type="submit">Opprett admin</button>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

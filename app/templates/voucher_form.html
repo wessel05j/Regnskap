@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+    <h1>Ny voucher</h1>
+    <p class="hint">Oppgi linjer som JSON-array. Debet og kredit ma balansere i hele NOK.</p>
+    <form method="post" enctype="multipart/form-data">
+        <div class="form-grid">
+            <label>Voucher-type
+                <input type="text" name="voucher_type" value="{{ form_data.voucher_type }}">
+            </label>
+            <label>Dokumentdato
+                <input type="date" name="document_date" value="{{ form_data.document_date }}" required>
+            </label>
+            <label>Bokforingsdato
+                <input type="date" name="posting_date" value="{{ form_data.posting_date }}" required>
+            </label>
+            <label>Motpart
+                <input type="text" name="counterparty_name" value="{{ form_data.counterparty_name }}">
+            </label>
+            <label>Motpart orgnr
+                <input type="text" name="counterparty_id" value="{{ form_data.counterparty_id }}">
+            </label>
+            <label>Valuta
+                <input type="text" name="currency" value="{{ form_data.currency }}">
+            </label>
+            <label>Valutakurs
+                <input type="number" step="0.0001" name="exchange_rate" value="{{ form_data.exchange_rate }}">
+            </label>
+            <label>Serie
+                <input type="text" name="series" value="{{ form_data.series }}">
+            </label>
+            <label>Status
+                <input type="text" name="status" value="{{ form_data.status }}">
+            </label>
+            <label>Beskrivelse
+                <textarea name="description">{{ form_data.description }}</textarea>
+            </label>
+            <label>Bilag
+                <input type="file" name="attachment" accept=".pdf,.jpg,.jpeg,.png">
+            </label>
+            <label style="grid-column: 1 / -1;">Linjer JSON
+                <textarea name="lines_json" style="min-height: 260px; font-family: Consolas, monospace;">{{ form_data.lines_json }}</textarea>
+            </label>
+        </div>
+        {% if errors.lines_json %}<p class="error">{{ errors.lines_json }}</p>{% endif %}
+        {% if errors.ledger %}<p class="error">{{ errors.ledger }}</p>{% endif %}
+        <div class="button-row">
+            <button type="submit">Lagre voucher</button>
+            <a class="button secondary" href="/vouchers">Avbryt</a>
+        </div>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Aktive kontoer</h2>
+    <table>
+        <thead><tr><th>Konto</th><th>Navn</th><th>Type</th></tr></thead>
+        <tbody>
+            {% for acc in accounts %}
+            <tr>
+                <td>{{ acc.account_no }}</td>
+                <td>{{ acc.name }}</td>
+                <td>{{ acc.account_type }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logg inn - Mini Regnskap</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <main class="container">
+        <section class="card" style="max-width: 480px; margin: 60px auto;">
+            <h1>Logg inn</h1>
+            <form method="post" action="/login">
+                <label>Brukernavn
+                    <input type="text" name="username" required autofocus>
+                </label>
+                <label>Passord
+                    <input type="password" name="password" required>
+                </label>
+                {% if error %}
+                    <p class="error">{{ error }}</p>
+                {% endif %}
+                <button type="submit">Logg inn</button>
+            </form>
+            <p class="subtle">Hvis systemet er nytt, opprett admin via <a href="/bootstrap-admin">bootstrap</a>.</p>
+        </section>
+    </main>
+</body>
+</html>

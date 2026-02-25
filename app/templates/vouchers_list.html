@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+    <div class="header-row">
+        <h1>Vouchers</h1>
+        <a class="button" href="/vouchers/new">Ny voucher</a>
+    </div>
+    <form class="filter-grid" method="get" action="/vouchers">
+        <label>Fra dato
+            <input type="date" name="start_date" value="{{ filters.start_date }}">
+        </label>
+        <label>Til dato
+            <input type="date" name="end_date" value="{{ filters.end_date }}">
+        </label>
+        <label>Type
+            <input type="text" name="voucher_type" value="{{ filters.voucher_type }}" placeholder="manual/reversal/...">
+        </label>
+        <button type="submit">Filtrer</button>
+    </form>
+</section>
+
+<section class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Dato</th>
+                <th>Voucher</th>
+                <th>Type</th>
+                <th>Motpart</th>
+                <th>Total NOK</th>
+                <th>Bilag</th>
+                <th>Handling</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.posting_date }}</td>
+                <td>{{ row.voucher_series }}-{{ row.voucher_no }}</td>
+                <td>{{ row.voucher_type }}</td>
+                <td>{{ row.counterparty_name or "-" }}</td>
+                <td>{{ row.total_nok }}</td>
+                <td>
+                    {% if row.bilag_id %}
+                        <a href="/bilag/{{ row.bilag_id }}">Last ned</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="/vouchers/{{ row.id }}">Detaljer</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7">Ingen vouchers funnet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

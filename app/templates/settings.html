@@ -37,8 +37,57 @@
                 {% if errors.vat_registered_from %}<span class="error">{{ errors.vat_registered_from }}</span>{% endif %}
             </label>
         </div>
-        <p class="hint">Typisk for "Eksport av digitale tjenester (Google Ireland)" er 0% utgaende MVA.</p>
         <button type="submit">Lagre settings</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Terminlaas</h2>
+    <form class="inline-form" method="get" action="/settings">
+        <label>Ar
+            <input type="number" name="year" min="1900" max="2100" value="{{ selected_year }}">
+        </label>
+        <button type="submit">Bytt ar</button>
+    </form>
+    <table>
+        <thead>
+            <tr>
+                <th>Termin</th>
+                <th>Periode</th>
+                <th>Status</th>
+                <th>Locked at</th>
+                <th>Handling</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for term in term_rows %}
+            <tr>
+                <td>{{ term.period_no }}</td>
+                <td>{{ term.start_date }} - {{ term.end_date }}</td>
+                <td>{% if term.is_locked %}LAAST{% else %}Apen{% endif %}</td>
+                <td>{{ term.locked_at or "-" }}</td>
+                <td>
+                    {% if not term.is_locked %}
+                        <form method="post" action="/settings/lock-term">
+                            <input type="hidden" name="year" value="{{ term.year }}">
+                            <input type="hidden" name="term" value="{{ term.period_no }}">
+                            <button type="submit" class="danger">Laas</button>
+                        </form>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<section class="card">
+    <h2>Legacy-migrering</h2>
+    <p>Kjor en gang for aa migrere gamle inntekter/utgifter til vouchers.</p>
+    <form method="post" action="/settings/run-legacy-migration">
+        <button type="submit">Kjor legacy-migrering na</button>
     </form>
 </section>
 {% endblock %}

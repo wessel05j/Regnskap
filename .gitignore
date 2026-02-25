@@ -2,24 +2,47 @@
 __pycache__/
 *.py[cod]
 *.pyd
-*.egg-info/
+*.so
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Virtual environment
+# Build/test artifacts
+build/
+dist/
+*.egg-info/
+.coverage
+coverage.xml
+htmlcov/
+
+# Virtual environment and local env files
 .venv/
+.env
+.env.*
+!.env.example
 
 # Local data (never commit accounting data)
 data/*
 !data/.gitkeep
+!data/attachments/
 !data/attachments/.gitkeep
+!data/reports/
 !data/reports/.gitkeep
-*.db
-*.sqlite
-*.log
-data/reports/*.pdf
+!data/backups/
+!data/backups/.gitkeep
 data/attachments/*
 !data/attachments/.gitkeep
+data/reports/*
+!data/reports/.gitkeep
+data/backups/*
+!data/backups/.gitkeep
+*.db
+*.sqlite
+*.sqlite3
+*.log
 
-# IDE
+# IDE / OS
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db

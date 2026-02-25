@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+    <div class="header-row">
+        <h1>Voucher {{ voucher.voucher_series }}-{{ voucher.voucher_no }}</h1>
+        <a class="button" href="/vouchers/{{ voucher.id }}/correct">Opprett korreksjon</a>
+    </div>
+    <p>Type: {{ voucher.voucher_type }} | Status: {{ voucher.status }}</p>
+    <p>Dokumentdato: {{ voucher.document_date }} | Bokforingsdato: {{ voucher.posting_date }}</p>
+    <p>Motpart: {{ voucher.counterparty_name or "-" }}</p>
+    <p>Total NOK: {{ voucher.total_nok }}</p>
+    <p>Beskrivelse: {{ voucher.description or "-" }}</p>
+    {% if voucher.bilag_id %}
+        <p>Bilag: <a href="/bilag/{{ voucher.bilag_id }}">{{ voucher.bilag_original_name or "Last ned" }}</a></p>
+    {% endif %}
+</section>
+
+<section class="card">
+    <h2>Linjer</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Konto</th>
+                <th>Debet</th>
+                <th>Kredit</th>
+                <th>Beskrivelse</th>
+                <th>mvaKode</th>
+                <th>Sats</th>
+                <th>Grunnlag</th>
+                <th>MVA</th>
+                <th>Bilag</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in voucher.lines %}
+            <tr>
+                <td>{{ line.line_no }}</td>
+                <td>{{ line.account_no }} {{ line.account_name }}</td>
+                <td>{{ line.debit_nok }}</td>
+                <td>{{ line.credit_nok }}</td>
+                <td>{{ line.description or "-" }}</td>
+                <td>{{ line.vat_mva_code or "-" }}</td>
+                <td>{% if line.vat_rate is not none %}{{ "%.2f"|format(line.vat_rate * 100) }}%{% else %}-{% endif %}</td>
+                <td>{{ line.vat_base_nok if line.vat_base_nok is not none else "-" }}</td>
+                <td>{{ line.vat_amount_nok if line.vat_amount_nok is not none else "-" }}</td>
+                <td>
+                    {% if line.bilag_id %}
+                        <a href="/bilag/{{ line.bilag_id }}">{{ line.bilag_original_name or "Last ned" }}</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+{% if voucher.related_vouchers %}
+<section class="card">
+    <h2>Relaterte vouchers</h2>
+    <ul>
+        {% for related in voucher.related_vouchers %}
+            <li><a href="/vouchers/{{ related.id }}">{{ related.voucher_series }}-{{ related.voucher_no }}</a> ({{ related.voucher_type }}, {{ related.posting_date }})</li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+{% endblock %}
