@@ -1,0 +1,92 @@
+{% import "components/card.html" as ui_card %}
+{% import "components/button.html" as ui_button %}
+{% import "components/badge.html" as ui_badge %}
+
+<section class="{{ ui_card.classes() }} space-y-4">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-900">VAT specification</h2>
+            <p class="text-sm text-slate-600">Term {{ selected_term }} ({{ vat_data.start_date }} to {{ vat_data.end_date }})</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <form method="post" action="/reports/mva">
+                <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
+                <input type="hidden" name="year" value="{{ selected_year }}">
+                <input type="hidden" name="term" value="{{ selected_term }}">
+                <button type="submit" class="{{ ui_button.classes('primary') }}" data-loading-text="Genererer PDF">Export PDF</button>
+            </form>
+            <form method="post" action="/reports/mva/json">
+                <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
+                <input type="hidden" name="year" value="{{ selected_year }}">
+                <input type="hidden" name="term" value="{{ selected_term }}">
+                <button type="submit" class="{{ ui_button.classes('secondary') }}" data-loading-text="Laster JSON">Export JSON</button>
+            </form>
+            <form method="post" action="/reports/mva/csv">
+                <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
+                <input type="hidden" name="year" value="{{ selected_year }}">
+                <input type="hidden" name="term" value="{{ selected_term }}">
+                <button type="submit" class="{{ ui_button.classes('secondary') }}" data-loading-text="Laster CSV">Export CSV</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="term-lock-warning" class="hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        Selected VAT term is not locked yet.
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total base</p>
+            <p class="mt-2 text-xl font-semibold text-slate-900">{{ vat_data.totals.grunnlag_nok }} NOK</p>
+        </article>
+        <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total VAT</p>
+            <p class="mt-2 text-xl font-semibold {% if vat_data.totals.merverdiavgift_nok >= 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">{{ vat_data.totals.merverdiavgift_nok }} NOK</p>
+        </article>
+        <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Net VAT</p>
+            <p class="mt-2 text-xl font-semibold {% if vat_data.totals.merverdiavgift_nok >= 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">{{ vat_data.totals.merverdiavgift_nok }} NOK</p>
+            <p class="mt-1 text-xs text-slate-500">Positive = payable, negative = receivable</p>
+        </article>
+        <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Validation errors</p>
+            <p class="mt-2 text-xl font-semibold {% if vat_data.validation_errors|length %}text-rose-700{% else %}text-emerald-700{% endif %}">{{ vat_data.validation_errors|length }}</p>
+        </article>
+    </div>
+
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {% for line in vat_data.lines %}
+        <article class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex items-center justify-between gap-2">
+                <p class="text-sm font-semibold text-slate-900">mvaKode {{ line.mvaKode }}</p>
+                {% if line.sats is not none %}
+                <span class="{{ ui_badge.classes('info') }}">{{ "%.2f"|format(line.sats * 100) }}%</span>
+                {% else %}
+                <span class="{{ ui_badge.classes('neutral') }}">No rate</span>
+                {% endif %}
+            </div>
+            <p class="mt-2 text-sm text-slate-600">Base: <span class="font-medium text-slate-900">{{ line.grunnlag_nok }}</span></p>
+            <p class="text-sm text-slate-600">VAT: <span class="font-medium text-slate-900">{{ line.merverdiavgift_nok }}</span></p>
+        </article>
+        {% else %}
+        <article class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">No VAT lines in selected term.</article>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="{{ ui_card.classes() }} space-y-3">
+    <h3 class="text-base font-semibold text-slate-900">Drilldown</h3>
+    {% for line in vat_data.lines %}
+    <details class="rounded-lg border border-slate-200" data-vat-drilldown data-mva-code="{{ line.mvaKode }}">
+        <summary class="flex cursor-pointer items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
+            <span>mvaKode {{ line.mvaKode }} {% if line.sats is not none %}({{ "%.2f"|format(line.sats * 100) }}%){% endif %}</span>
+            <span class="text-xs text-slate-500">{{ line.grunnlag_nok }} / {{ line.merverdiavgift_nok }} NOK</span>
+        </summary>
+        <div class="border-t border-slate-200 p-4" data-drilldown-content>
+            <p class="text-sm text-slate-500">Expand to load drilldown details.</p>
+        </div>
+    </details>
+    {% else %}
+    <p class="text-sm text-slate-500">No lines available.</p>
+    {% endfor %}
+</section>

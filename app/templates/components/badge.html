@@ -1,0 +1,13 @@
+{% macro classes(tone='info') -%}
+{% if tone == 'success' -%}
+inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700
+{% elif tone == 'warning' -%}
+inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700
+{% elif tone == 'danger' -%}
+inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-700
+{% elif tone == 'neutral' -%}
+inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600
+{% else -%}
+inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700
+{% endif -%}
+{%- endmacro %}

@@ -143,3 +143,30 @@ Dekker bl.a.:
 - korreksjonsflyt (reversal + ny voucher)
 - MVA whole-NOK + floor-validering
 - drilldown-data for MVA-linjer
+
+## UI Overhaul - v2 Design System
+
+Frontend er oppgradert til en server-rendered SaaS-layout med komponentbaserte Jinja-maler og Tailwind CSS (CDN):
+
+- Ny global layout med fast sidebar, topbar, responsive mobilmeny og statusindikatorer
+- Gjenbrukbare komponenter under `app/templates/components/`:
+  - `card.html`
+  - `badge.html`
+  - `button.html`
+  - `modal.html`
+- Ny malstruktur under `app/templates/`:
+  - `layouts/base.html`
+  - `pages/dashboard.html`
+  - `pages/vouchers.html`
+  - `pages/voucher_detail.html`
+  - `pages/reports.html`
+  - `pages/vat.html`
+  - `pages/accounts.html`
+  - `pages/settings.html`
+- Forbedret UX i vouchers (dynamiske linjer, balanseindikator, VAT-preview, status-badges)
+- Rapportfaner (Journal, Account specification, VAT specification, Year overview) med eksportknapper og inline preview
+- Sikkerhets- og kvalitetsforbedringer i UI:
+  - skjult CSRF-felt i POST-skjema
+  - bekreftelsesmodal ved kritiske handlinger
+  - submit-loading state
+  - enkel session-timeout advarsel

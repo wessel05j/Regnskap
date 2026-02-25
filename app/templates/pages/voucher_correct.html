@@ -1,0 +1,270 @@
+{% extends "layouts/base.html" %}
+{% import "components/card.html" as ui_card %}
+{% import "components/button.html" as ui_button %}
+{% import "components/badge.html" as ui_badge %}
+
+{% block page_title %}Korriger voucher {{ voucher.voucher_series }}-{{ voucher.voucher_no }} | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+
+{% block page_content %}
+<section class="{{ ui_card.classes() }}">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-slate-900">Korriger voucher {{ voucher.voucher_series }}-{{ voucher.voucher_no }}</h1>
+            <p class="mt-1 text-sm text-slate-600">Submitting this form creates one reversal voucher and one corrected voucher.</p>
+        </div>
+        <span class="{{ ui_badge.classes('danger') }}">REVERSAL FLOW</span>
+    </div>
+
+    {% if errors.ledger %}
+    <div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ errors.ledger }}</div>
+    {% endif %}
+</section>
+
+<form id="correction-form" method="post" class="space-y-6" data-confirm="Create correction vouchers now? This operation cannot be undone.">
+    <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
+
+    <section class="{{ ui_card.classes() }}">
+        <h2 class="text-lg font-semibold text-slate-900">Correction header</h2>
+        <div class="mt-4 grid gap-4 md:grid-cols-3">
+            <div class="md:col-span-3">
+                <label for="reason" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Reason</label>
+                <input id="reason" name="reason" type="text" value="{{ form_data.reason }}" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            </div>
+            <div>
+                <label for="document_date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Document date</label>
+                <input id="document_date" name="document_date" type="date" value="{{ form_data.document_date }}" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            </div>
+            <div>
+                <label for="posting_date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Posting date</label>
+                <input id="posting_date" name="posting_date" type="date" value="{{ form_data.posting_date }}" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                Original voucher status: <span class="font-medium text-slate-900">{{ voucher.status }}</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="{{ ui_card.classes() }} space-y-4">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-900">Corrected line items</h2>
+                <p class="text-sm text-slate-500">Adjust values before generating correction vouchers.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <span id="correction-balance-indicator" class="{{ ui_badge.classes('danger') }}">Not balanced</span>
+                <button id="correction-add-line" type="button" class="{{ ui_button.classes('secondary') }}">Add line</button>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-200">
+            <table class="min-w-full text-sm">
+                <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <tr>
+                        <th class="px-2 py-2">Account</th>
+                        <th class="px-2 py-2">Debet</th>
+                        <th class="px-2 py-2">Kredit</th>
+                        <th class="px-2 py-2">Description</th>
+                        <th class="px-2 py-2">mvaKode</th>
+                        <th class="px-2 py-2">VAT %</th>
+                        <th class="px-2 py-2">VAT base</th>
+                        <th class="px-2 py-2">VAT amount</th>
+                        <th class="px-2 py-2">Line bilag</th>
+                        <th class="px-2 py-2 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="correction-lines-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+
+        <p id="correction-balance-detail" class="text-xs text-slate-500">Debet 0 | Kredit 0</p>
+        <textarea id="correction-lines-json" name="lines_json" class="hidden" aria-hidden="true">{{ form_data.lines_json }}</textarea>
+        {% if errors.lines_json %}
+        <p class="text-sm text-rose-700">{{ errors.lines_json }}</p>
+        {% endif %}
+    </section>
+
+    <div class="flex flex-wrap items-center justify-end gap-2">
+        <a href="/vouchers/{{ voucher.id }}" class="{{ ui_button.classes('secondary') }}">Cancel</a>
+        <button type="submit" class="{{ ui_button.classes('primary') }}" data-loading-text="Oppretter korreksjon">Create correction</button>
+    </div>
+</form>
+
+<datalist id="correction-account-options">
+    {% for line in voucher.lines %}
+    <option value="{{ line.account_no }}">{{ line.account_no }} - {{ line.account_name }}</option>
+    {% endfor %}
+</datalist>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    (() => {
+        const form = document.getElementById('correction-form');
+        const linesBody = document.getElementById('correction-lines-body');
+        const addButton = document.getElementById('correction-add-line');
+        const hiddenJson = document.getElementById('correction-lines-json');
+        const indicator = document.getElementById('correction-balance-indicator');
+        const detail = document.getElementById('correction-balance-detail');
+
+        if (!form || !linesBody || !hiddenJson) {
+            return;
+        }
+
+        const toNumber = (value) => {
+            const parsed = Number((value || '').toString().replace(',', '.'));
+            return Number.isFinite(parsed) ? parsed : 0;
+        };
+
+        const toOptionalNumber = (value) => {
+            const trimmed = (value || '').toString().trim();
+            if (!trimmed) {
+                return null;
+            }
+            const parsed = Number(trimmed.replace(',', '.'));
+            return Number.isFinite(parsed) ? parsed : null;
+        };
+
+        const escapeHtml = (value) => String(value || '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+
+        const rowHtml = (line = {}) => {
+            const vatPercent = line.vat_rate === null || line.vat_rate === undefined || line.vat_rate === ''
+                ? ''
+                : String(Number(line.vat_rate) * 100);
+            return `
+                <tr data-line-row>
+                    <td class="px-2 py-2"><input data-field="account_no" list="correction-account-options" type="text" value="${escapeHtml(line.account_no || '')}" class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"></td>
+                    <td class="px-2 py-2"><input data-field="debit_nok" type="number" step="0.01" value="${escapeHtml(line.debit_nok ?? '')}" class="w-24 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"></td>
+                    <td class="px-2 py-2"><input data-field="credit_nok" type="number" step="0.01" value="${escapeHtml(line.credit_nok ?? '')}" class="w-24 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"></td>
+                    <td class="px-2 py-2"><input data-field="description" type="text" value="${escapeHtml(line.description || '')}" class="w-44 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"></td>
+                    <td class="px-2 py-2"><input data-field="vat_mva_code" type="text" value="${escapeHtml(line.vat_mva_code || '')}" class="w-16 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"></td>
+                    <td class="px-2 py-2"><input data-field="vat_rate_percent" type="number" step="0.01" value="${escapeHtml(vatPercent)}" class="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"></td>
+                    <td class="px-2 py-2"><input data-field="vat_base_nok" type="number" step="0.01" value="${escapeHtml(line.vat_base_nok ?? '')}" class="w-24 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"></td>
+                    <td class="px-2 py-2"><input data-field="vat_amount_nok" type="number" step="0.01" value="${escapeHtml(line.vat_amount_nok ?? '')}" class="w-24 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"></td>
+                    <td class="px-2 py-2"><input data-field="bilag_id" type="number" step="1" value="${escapeHtml(line.bilag_id ?? '')}" class="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"></td>
+                    <td class="px-2 py-2 text-right"><button type="button" data-remove-line class="inline-flex items-center rounded-md border border-slate-300 px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Remove</button></td>
+                </tr>
+            `;
+        };
+
+        const addRow = (line = {}) => {
+            linesBody.insertAdjacentHTML('beforeend', rowHtml(line));
+        };
+
+        const getRows = () => Array.from(linesBody.querySelectorAll('[data-line-row]'));
+
+        const buildLines = () => {
+            return getRows().map((row) => {
+                const read = (field) => row.querySelector(`[data-field="${field}"]`)?.value || '';
+                const vatRatePercent = toOptionalNumber(read('vat_rate_percent'));
+                return {
+                    account_no: read('account_no').trim(),
+                    debit_nok: Math.round(toNumber(read('debit_nok'))),
+                    credit_nok: Math.round(toNumber(read('credit_nok'))),
+                    description: read('description').trim(),
+                    vat_mva_code: read('vat_mva_code').trim() || null,
+                    vat_rate: vatRatePercent === null ? null : vatRatePercent / 100,
+                    vat_base_nok: (() => {
+                        const value = toOptionalNumber(read('vat_base_nok'));
+                        return value === null ? null : Math.round(value);
+                    })(),
+                    vat_amount_nok: (() => {
+                        const value = toOptionalNumber(read('vat_amount_nok'));
+                        return value === null ? null : Math.round(value);
+                    })(),
+                    bilag_id: (() => {
+                        const value = toOptionalNumber(read('bilag_id'));
+                        return value === null ? null : Math.round(value);
+                    })(),
+                };
+            }).filter((line) => {
+                return line.account_no || line.debit_nok || line.credit_nok || line.description || line.vat_mva_code || line.vat_rate !== null || line.vat_base_nok !== null || line.vat_amount_nok !== null || line.bilag_id !== null;
+            });
+        };
+
+        const refresh = () => {
+            const lines = buildLines();
+            hiddenJson.value = JSON.stringify(lines, null, 2);
+            const debitTotal = lines.reduce((sum, line) => sum + (line.debit_nok || 0), 0);
+            const creditTotal = lines.reduce((sum, line) => sum + (line.credit_nok || 0), 0);
+            const diff = debitTotal - creditTotal;
+
+            if (detail) {
+                detail.textContent = `Debet ${debitTotal.toFixed(2)} | Kredit ${creditTotal.toFixed(2)} | Diff ${diff.toFixed(2)}`;
+            }
+            if (indicator) {
+                indicator.className = 'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium';
+                if (Math.abs(diff) < 0.0001 && (debitTotal > 0 || creditTotal > 0)) {
+                    indicator.classList.add('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
+                    indicator.textContent = 'Balanced';
+                } else {
+                    indicator.classList.add('border-rose-200', 'bg-rose-50', 'text-rose-700');
+                    indicator.textContent = 'Not balanced';
+                }
+            }
+        };
+
+        addButton?.addEventListener('click', () => {
+            addRow();
+            refresh();
+        });
+
+        linesBody.addEventListener('click', (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) {
+                return;
+            }
+            const removeButton = target.closest('[data-remove-line]');
+            if (!removeButton) {
+                return;
+            }
+            const row = removeButton.closest('[data-line-row]');
+            if (row) {
+                row.remove();
+                if (getRows().length === 0) {
+                    addRow();
+                }
+                refresh();
+            }
+        });
+
+        linesBody.addEventListener('input', refresh);
+
+        form.addEventListener('submit', (event) => {
+            const lines = buildLines();
+            if (!lines.length) {
+                event.preventDefault();
+                window.alert('At least one corrected line is required.');
+                return;
+            }
+            const debitTotal = lines.reduce((sum, line) => sum + (line.debit_nok || 0), 0);
+            const creditTotal = lines.reduce((sum, line) => sum + (line.credit_nok || 0), 0);
+            if (Math.abs(debitTotal - creditTotal) > 0.0001) {
+                event.preventDefault();
+                window.alert('Debet and kredit must balance before correction.');
+            }
+        });
+
+        let initialLines = [];
+        try {
+            initialLines = JSON.parse(hiddenJson.value || '[]');
+            if (!Array.isArray(initialLines)) {
+                initialLines = [];
+            }
+        } catch (error) {
+            initialLines = [];
+        }
+
+        if (!initialLines.length) {
+            addRow();
+        } else {
+            initialLines.forEach((line) => addRow(line));
+        }
+        refresh();
+    })();
+</script>
+{% endblock %}

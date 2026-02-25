@@ -1,29 +1,35 @@
-<!DOCTYPE html>
-<html lang="no">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Logg inn - Mini Regnskap</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <main class="container">
-        <section class="card" style="max-width: 480px; margin: 60px auto;">
-            <h1>Logg inn</h1>
-            <form method="post" action="/login">
-                <label>Brukernavn
-                    <input type="text" name="username" required autofocus>
-                </label>
-                <label>Passord
-                    <input type="password" name="password" required>
-                </label>
-                {% if error %}
-                    <p class="error">{{ error }}</p>
-                {% endif %}
-                <button type="submit">Logg inn</button>
-            </form>
-            <p class="subtle">Hvis systemet er nytt, opprett admin via <a href="/bootstrap-admin">bootstrap</a>.</p>
-        </section>
-    </main>
-</body>
-</html>
+{% extends "layouts/base.html" %}
+{% set auth_layout = False %}
+{% import "components/card.html" as ui_card %}
+{% import "components/button.html" as ui_button %}
+
+{% block page_title %}Logg inn | Mini Regnskap{% endblock %}
+
+{% block page_content %}
+<section class="{{ ui_card.classes('w-full max-w-md') }}">
+    <h1 class="text-2xl font-semibold text-slate-900">Logg inn</h1>
+    <p class="mt-1 text-sm text-slate-600">Secure local access to your ENK bookkeeping system.</p>
+
+    <form class="mt-6 space-y-4" method="post" action="/login">
+        <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
+
+        <div>
+            <label for="username" class="block text-sm font-medium text-slate-700">Brukernavn</label>
+            <input id="username" type="text" name="username" required autofocus class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+        </div>
+
+        <div>
+            <label for="password" class="block text-sm font-medium text-slate-700">Passord</label>
+            <input id="password" type="password" name="password" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+        </div>
+
+        {% if error %}
+        <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ error }}</div>
+        {% endif %}
+
+        <button type="submit" class="{{ ui_button.classes('primary') }} w-full" data-loading-text="Logger inn">Logg inn</button>
+    </form>
+
+    <p class="mt-4 text-xs text-slate-500">Ny installasjon? Opprett admin via <a href="/bootstrap-admin" class="font-medium text-indigo-600 hover:text-indigo-500 hover:underline">bootstrap</a>.</p>
+</section>
+{% endblock %}

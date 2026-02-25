@@ -1,0 +1,333 @@
+{% extends "layouts/base.html" %}
+{% import "components/card.html" as ui_card %}
+{% import "components/button.html" as ui_button %}
+{% import "components/badge.html" as ui_badge %}
+
+{% block page_title %}Vouchers | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+
+{% block page_content %}
+<section class="{{ ui_card.classes() }}">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-slate-900">Vouchers</h1>
+            <p class="mt-1 text-sm text-slate-600">Search, filter and inspect posted vouchers.</p>
+        </div>
+        <a href="/vouchers/new" class="{{ ui_button.classes('primary') }}">Ny voucher</a>
+    </div>
+
+    <form class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4" method="get" action="/vouchers">
+        <div>
+            <label for="filter-start-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Date from</label>
+            <input id="filter-start-date" type="date" name="start_date" value="{{ filters.start_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+        </div>
+        <div>
+            <label for="filter-end-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Date to</label>
+            <input id="filter-end-date" type="date" name="end_date" value="{{ filters.end_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+        </div>
+        <div>
+            <label for="filter-voucher-type" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Voucher type</label>
+            <input id="filter-voucher-type" type="text" name="voucher_type" value="{{ filters.voucher_type }}" placeholder="manual / reversal / correction" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+        </div>
+        <div class="flex items-end">
+            <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Filtrerer">Apply server filters</button>
+        </div>
+    </form>
+</section>
+
+<section class="{{ ui_card.classes() }} space-y-4">
+    <div class="grid gap-4 lg:grid-cols-5">
+        <div class="lg:col-span-2">
+            <label for="client-search" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Search</label>
+            <input id="client-search" type="search" placeholder="Voucher ref, counterparty, status" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+        </div>
+        <div>
+            <label for="client-account" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Account</label>
+            <input id="client-account" type="text" placeholder="e.g. 3000" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+        </div>
+        <div>
+            <label for="client-vat" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">VAT code</label>
+            <input id="client-vat" type="text" placeholder="e.g. 3, 81, 11" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+        </div>
+        <div>
+            <label for="client-lock" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Lock state</label>
+            <select id="client-lock" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                <option value="all">All</option>
+                <option value="locked">Locked</option>
+                <option value="unlocked">Unlocked</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="flex items-center justify-between gap-3">
+        <p class="text-sm text-slate-600"><span id="voucher-visible-count" class="font-semibold text-slate-900">0</span> vouchers visible</p>
+        <p id="voucher-filter-status" class="text-xs text-slate-500">Client filters include account, VAT code, and lock state.</p>
+    </div>
+
+    <div class="overflow-x-auto rounded-lg border border-slate-200">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                    <th class="px-3 py-2">Date</th>
+                    <th class="px-3 py-2">Voucher</th>
+                    <th class="px-3 py-2">Type</th>
+                    <th class="px-3 py-2">Counterparty</th>
+                    <th class="px-3 py-2 text-right">Total NOK</th>
+                    <th class="px-3 py-2">Status</th>
+                    <th class="px-3 py-2">Attachment</th>
+                    <th class="px-3 py-2 text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for row in rows %}
+                <tr
+                    data-voucher-row
+                    data-voucher-id="{{ row.id }}"
+                    data-posting-date="{{ row.posting_date }}"
+                    data-voucher-type="{{ row.voucher_type|lower }}"
+                    data-status="{{ row.status|lower if row.status else '' }}"
+                    data-counterparty="{{ (row.counterparty_name or '')|lower }}"
+                    data-voucher-ref="{{ row.voucher_series }}-{{ row.voucher_no }}"
+                    class="hover:bg-slate-50"
+                >
+                    <td class="whitespace-nowrap px-3 py-2 text-slate-700">{{ row.posting_date }}</td>
+                    <td class="whitespace-nowrap px-3 py-2 font-medium text-slate-900">{{ row.voucher_series }}-{{ row.voucher_no }}</td>
+                    <td class="whitespace-nowrap px-3 py-2 text-slate-700">{{ row.voucher_type }}</td>
+                    <td class="px-3 py-2 text-slate-700">{{ row.counterparty_name or '-' }}</td>
+                    <td class="whitespace-nowrap px-3 py-2 text-right font-medium text-slate-900">{{ row.total_nok }}</td>
+                    <td class="whitespace-nowrap px-3 py-2">
+                        <div class="flex flex-wrap items-center gap-1">
+                            {% if row.status %}
+                            <span class="{{ ui_badge.classes('success' if row.status|lower == 'posted' else 'neutral') }}">{{ row.status|upper }}</span>
+                            {% endif %}
+                            {% if row.voucher_type|lower == 'reversal' %}
+                            <span class="{{ ui_badge.classes('danger') }}">REVERSAL</span>
+                            {% endif %}
+                            <span data-lock-chip class="hidden {{ ui_badge.classes('warning') }}">LOCKED</span>
+                        </div>
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-2 text-slate-700">
+                        {% if row.bilag_id %}
+                        <a href="/bilag/{{ row.bilag_id }}" class="text-indigo-600 hover:text-indigo-500 hover:underline">Download</a>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-2 text-right">
+                        <a href="/vouchers/{{ row.id }}" class="{{ ui_button.classes('secondary') }}">Open</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="px-3 py-10 text-center text-slate-500">No vouchers found for selected filters.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    (() => {
+        const rows = Array.from(document.querySelectorAll('[data-voucher-row]'));
+        const searchInput = document.getElementById('client-search');
+        const accountInput = document.getElementById('client-account');
+        const vatInput = document.getElementById('client-vat');
+        const lockSelect = document.getElementById('client-lock');
+        const countLabel = document.getElementById('voucher-visible-count');
+        const statusLabel = document.getElementById('voucher-filter-status');
+
+        if (!rows.length) {
+            if (countLabel) {
+                countLabel.textContent = '0';
+            }
+            return;
+        }
+
+        const termCache = new Map();
+        const voucherMetaCache = new Map();
+
+        const parseTermRows = (html) => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            return Array.from(doc.querySelectorAll('[data-term-row]')).map((row) => ({
+                start: row.getAttribute('data-start') || '',
+                end: row.getAttribute('data-end') || '',
+                locked: row.getAttribute('data-locked') === '1',
+            }));
+        };
+
+        const fetchTermsForYear = async (year) => {
+            if (termCache.has(year)) {
+                return termCache.get(year);
+            }
+            try {
+                const response = await fetch(`/settings?year=${year}`, { credentials: 'same-origin' });
+                if (!response.ok) {
+                    termCache.set(year, []);
+                    return [];
+                }
+                const html = await response.text();
+                const terms = parseTermRows(html);
+                termCache.set(year, terms);
+                return terms;
+            } catch (error) {
+                termCache.set(year, []);
+                return [];
+            }
+        };
+
+        const isLockedDate = (postingDate, terms) => {
+            const term = terms.find((item) => item.start <= postingDate && item.end >= postingDate);
+            return term ? term.locked : false;
+        };
+
+        const annotateLockStates = async () => {
+            const years = Array.from(new Set(rows.map((row) => Number((row.dataset.postingDate || '').slice(0, 4))).filter((year) => Number.isFinite(year) && year > 1900)));
+            await Promise.all(years.map((year) => fetchTermsForYear(year)));
+            rows.forEach((row) => {
+                const postingDate = row.dataset.postingDate || '';
+                const year = Number(postingDate.slice(0, 4));
+                const terms = termCache.get(year) || [];
+                const locked = isLockedDate(postingDate, terms);
+                row.dataset.locked = locked ? '1' : '0';
+                const lockChip = row.querySelector('[data-lock-chip]');
+                if (lockChip) {
+                    if (locked) {
+                        lockChip.classList.remove('hidden');
+                    } else {
+                        lockChip.classList.add('hidden');
+                    }
+                }
+            });
+        };
+
+        const getVoucherMeta = async (voucherId) => {
+            if (voucherMetaCache.has(voucherId)) {
+                return voucherMetaCache.get(voucherId);
+            }
+            try {
+                const response = await fetch(`/vouchers/${voucherId}`, { credentials: 'same-origin' });
+                if (!response.ok) {
+                    const empty = { accounts: [], vatCodes: [] };
+                    voucherMetaCache.set(voucherId, empty);
+                    return empty;
+                }
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const accountSet = new Set();
+                const vatSet = new Set();
+                doc.querySelectorAll('[data-voucher-line]').forEach((line) => {
+                    const accountNo = (line.getAttribute('data-account-no') || '').trim();
+                    const vatCode = (line.getAttribute('data-vat-code') || '').trim();
+                    if (accountNo) {
+                        accountSet.add(accountNo);
+                    }
+                    if (vatCode) {
+                        vatSet.add(vatCode);
+                    }
+                });
+                const meta = {
+                    accounts: Array.from(accountSet),
+                    vatCodes: Array.from(vatSet),
+                };
+                voucherMetaCache.set(voucherId, meta);
+                return meta;
+            } catch (error) {
+                const empty = { accounts: [], vatCodes: [] };
+                voucherMetaCache.set(voucherId, empty);
+                return empty;
+            }
+        };
+
+        const updateVisibleCount = () => {
+            if (!countLabel) {
+                return;
+            }
+            const visible = rows.filter((row) => !row.classList.contains('hidden')).length;
+            countLabel.textContent = String(visible);
+        };
+
+        let filterSequence = 0;
+        const applyFilters = async () => {
+            filterSequence += 1;
+            const activeSequence = filterSequence;
+            const search = (searchInput?.value || '').trim().toLowerCase();
+            const account = (accountInput?.value || '').trim();
+            const vatCode = (vatInput?.value || '').trim().toLowerCase();
+            const lockState = lockSelect?.value || 'all';
+
+            const baseMatches = [];
+            rows.forEach((row) => {
+                const rowText = `${row.dataset.voucherRef || ''} ${row.dataset.counterparty || ''} ${row.dataset.voucherType || ''} ${row.dataset.status || ''}`.toLowerCase();
+                const searchMatch = !search || rowText.includes(search);
+                const lockMatch = lockState === 'all' || (lockState === 'locked' ? row.dataset.locked === '1' : row.dataset.locked === '0');
+                if (searchMatch && lockMatch) {
+                    baseMatches.push(row);
+                } else {
+                    row.classList.add('hidden');
+                }
+            });
+
+            if (!account && !vatCode) {
+                baseMatches.forEach((row) => row.classList.remove('hidden'));
+                updateVisibleCount();
+                if (statusLabel) {
+                    statusLabel.textContent = 'Client filters include account, VAT code, and lock state.';
+                }
+                return;
+            }
+
+            if (statusLabel) {
+                statusLabel.textContent = 'Loading voucher line metadata for account/VAT filters...';
+            }
+
+            const checks = await Promise.all(baseMatches.map(async (row) => {
+                const voucherId = row.dataset.voucherId || '';
+                const meta = await getVoucherMeta(voucherId);
+                const accountMatch = !account || meta.accounts.some((acc) => acc.startsWith(account));
+                const vatMatch = !vatCode || meta.vatCodes.some((code) => code.toLowerCase().includes(vatCode));
+                return {
+                    row,
+                    visible: accountMatch && vatMatch,
+                };
+            }));
+
+            if (activeSequence !== filterSequence) {
+                return;
+            }
+
+            checks.forEach((result) => {
+                if (result.visible) {
+                    result.row.classList.remove('hidden');
+                } else {
+                    result.row.classList.add('hidden');
+                }
+            });
+            updateVisibleCount();
+            if (statusLabel) {
+                statusLabel.textContent = 'Client filters include account, VAT code, and lock state.';
+            }
+        };
+
+        let debounceTimer = null;
+        const debounceApply = () => {
+            if (debounceTimer) {
+                window.clearTimeout(debounceTimer);
+            }
+            debounceTimer = window.setTimeout(() => {
+                applyFilters();
+            }, 220);
+        };
+
+        [searchInput, accountInput, vatInput, lockSelect].forEach((input) => {
+            input?.addEventListener('input', debounceApply);
+            input?.addEventListener('change', debounceApply);
+        });
+
+        annotateLockStates().then(() => applyFilters());
+    })();
+</script>
+{% endblock %}

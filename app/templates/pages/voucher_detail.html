@@ -1,0 +1,132 @@
+{% extends "layouts/base.html" %}
+{% import "components/card.html" as ui_card %}
+{% import "components/button.html" as ui_button %}
+{% import "components/badge.html" as ui_badge %}
+
+{% block page_title %}Voucher {{ voucher.voucher_series }}-{{ voucher.voucher_no }} | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+
+{% block page_content %}
+<section class="{{ ui_card.classes() }}">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-slate-900">Voucher {{ voucher.voucher_series }}-{{ voucher.voucher_no }}</h1>
+            <p class="mt-1 text-sm text-slate-600">Detailed voucher view with line-level VAT and attachments.</p>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+                {% if voucher.status and voucher.status|lower == 'posted' %}
+                <span class="{{ ui_badge.classes('success') }}">POSTED</span>
+                {% elif voucher.status and voucher.status|lower == 'locked' %}
+                <span class="{{ ui_badge.classes('danger') }}">LOCKED</span>
+                {% else %}
+                <span class="{{ ui_badge.classes('neutral') }}">{{ voucher.status|upper if voucher.status else 'N/A' }}</span>
+                {% endif %}
+                {% if voucher.voucher_type|lower == 'reversal' %}
+                <span class="{{ ui_badge.classes('danger') }}">REVERSAL</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="/vouchers" class="{{ ui_button.classes('secondary') }}">Back to list</a>
+            <a href="/vouchers/{{ voucher.id }}/correct" class="{{ ui_button.classes('primary') }}" data-confirm="Create correction flow? This will create reversal + corrected voucher after submit.">Opprett korreksjon</a>
+        </div>
+    </div>
+
+    <dl class="mt-6 grid gap-4 text-sm md:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Type</dt>
+            <dd class="mt-1 text-slate-900">{{ voucher.voucher_type }}</dd>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Document date</dt>
+            <dd class="mt-1 text-slate-900">{{ voucher.document_date }}</dd>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Posting date</dt>
+            <dd class="mt-1 text-slate-900">{{ voucher.posting_date }}</dd>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total NOK</dt>
+            <dd class="mt-1 font-medium text-slate-900">{{ voucher.total_nok }}</dd>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 md:col-span-2">
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Counterparty</dt>
+            <dd class="mt-1 text-slate-900">{{ voucher.counterparty_name or '-' }}</dd>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 md:col-span-2">
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Description</dt>
+            <dd class="mt-1 text-slate-900">{{ voucher.description or '-' }}</dd>
+        </div>
+    </dl>
+
+    {% if voucher.bilag_id %}
+    <div class="mt-4">
+        <a href="/bilag/{{ voucher.bilag_id }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500 hover:underline">
+            Download voucher attachment: {{ voucher.bilag_original_name or 'Bilag' }}
+        </a>
+    </div>
+    {% endif %}
+</section>
+
+<section class="{{ ui_card.classes() }}">
+    <h2 class="text-lg font-semibold text-slate-900">Line items</h2>
+    <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                    <th class="px-3 py-2">#</th>
+                    <th class="px-3 py-2">Account</th>
+                    <th class="px-3 py-2 text-right">Debet</th>
+                    <th class="px-3 py-2 text-right">Kredit</th>
+                    <th class="px-3 py-2">Description</th>
+                    <th class="px-3 py-2">mvaKode</th>
+                    <th class="px-3 py-2">Rate</th>
+                    <th class="px-3 py-2 text-right">Base</th>
+                    <th class="px-3 py-2 text-right">VAT</th>
+                    <th class="px-3 py-2">Bilag</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for line in voucher.lines %}
+                <tr data-voucher-line data-account-no="{{ line.account_no }}" data-vat-code="{{ line.vat_mva_code or '' }}" class="hover:bg-slate-50">
+                    <td class="whitespace-nowrap px-3 py-2 text-slate-600">{{ line.line_no }}</td>
+                    <td class="whitespace-nowrap px-3 py-2 text-slate-800">{{ line.account_no }} {{ line.account_name }}</td>
+                    <td class="whitespace-nowrap px-3 py-2 text-right text-slate-700">{{ line.debit_nok }}</td>
+                    <td class="whitespace-nowrap px-3 py-2 text-right text-slate-700">{{ line.credit_nok }}</td>
+                    <td class="px-3 py-2 text-slate-700">{{ line.description or '-' }}</td>
+                    <td class="whitespace-nowrap px-3 py-2 text-slate-700">{{ line.vat_mva_code or '-' }}</td>
+                    <td class="whitespace-nowrap px-3 py-2 text-slate-700">
+                        {% if line.vat_rate is not none %}
+                        {{ "%.2f"|format(line.vat_rate * 100) }}%
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-2 text-right text-slate-700">{{ line.vat_base_nok if line.vat_base_nok is not none else '-' }}</td>
+                    <td class="whitespace-nowrap px-3 py-2 text-right text-slate-700">{{ line.vat_amount_nok if line.vat_amount_nok is not none else '-' }}</td>
+                    <td class="whitespace-nowrap px-3 py-2 text-slate-700">
+                        {% if line.bilag_id %}
+                        <a href="/bilag/{{ line.bilag_id }}" class="text-indigo-600 hover:text-indigo-500 hover:underline">{{ line.bilag_original_name or 'Download' }}</a>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% if voucher.related_vouchers %}
+<section class="{{ ui_card.classes() }}">
+    <h2 class="text-lg font-semibold text-slate-900">Related vouchers</h2>
+    <ul class="mt-4 space-y-2 text-sm">
+        {% for related in voucher.related_vouchers %}
+        <li class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <a href="/vouchers/{{ related.id }}" class="font-medium text-indigo-600 hover:text-indigo-500 hover:underline">{{ related.voucher_series }}-{{ related.voucher_no }}</a>
+            <span class="text-slate-600">{{ related.voucher_type }} | {{ related.posting_date }} | {{ related.status }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+{% endblock %}

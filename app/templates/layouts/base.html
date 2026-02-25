@@ -1,0 +1,434 @@
+{% import "components/button.html" as ui_button %}
+{% import "components/modal.html" as ui_modal %}
+
+{% set has_auth_shell = auth_layout if auth_layout is defined else (current_user is not none) %}
+{% set company_name = settings.company_name if settings is defined and settings.company_name else "Mini Regnskap" %}
+{% set inferred_year = selected_year if selected_year is defined else request.query_params.get('year') %}
+
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ request.cookies.get('session_token', '') if request is defined else '' }}">
+    <title>{% block page_title %}{{ company_name }}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        window.tailwind = window.tailwind || {};
+        window.tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            200: '#c7d2fe',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        },
+                    },
+                },
+            },
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen bg-slate-100 font-sans text-slate-800 antialiased">
+    <div class="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.08),_transparent_55%)]"></div>
+
+    {% if has_auth_shell %}
+    <div id="sidebar-overlay" class="fixed inset-0 z-30 hidden bg-slate-900/40 lg:hidden"></div>
+
+    <aside id="app-sidebar" class="fixed inset-y-0 left-0 z-40 w-72 -translate-x-full border-r border-slate-200 bg-white/95 px-4 py-6 shadow-xl transition-transform duration-200 lg:translate-x-0 lg:shadow-none">
+        <div class="flex h-full flex-col">
+            <div class="mb-8 px-2">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Regnskap</p>
+                <h1 class="mt-2 text-lg font-semibold text-slate-900">{{ company_name }}</h1>
+            </div>
+
+            <nav class="space-y-1" aria-label="Hovedmeny">
+                <a href="/" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'dashboard' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Dashboard</a>
+                <a href="/vouchers" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'vouchers' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Vouchers</a>
+                <a href="/reports" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'reports' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Reports</a>
+                <a href="/reports#vat" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'reports' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">VAT</a>
+                <a href="/reports#accounts" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'reports' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Accounts</a>
+                <a href="/settings" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'settings' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Settings</a>
+            </nav>
+
+            <form class="mt-auto px-2" method="post" action="/logout">
+                <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
+                <button type="submit" class="{{ ui_button.classes('destructive') }} w-full" data-loading-text="Logger ut">
+                    Logout
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <div class="lg:pl-72">
+        <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
+            <div class="flex h-16 items-center justify-between gap-4 px-4 lg:px-6">
+                <div class="flex items-center gap-3">
+                    <button id="sidebar-toggle" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 lg:hidden" aria-label="Vis meny">
+                        <span class="text-xs font-semibold">Menu</span>
+                    </button>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-900">{{ company_name }}</p>
+                        <p class="text-xs text-slate-500">Server-rendered ENK ledger</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-end gap-2 text-xs sm:text-sm">
+                    <span id="fiscal-year-indicator" data-fiscal-year="{{ inferred_year or '' }}" class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-medium text-slate-700">
+                        Fiscal year: {{ inferred_year or 'auto' }}
+                    </span>
+                    <span id="lock-status-chip" data-fiscal-year="{{ inferred_year or '' }}" class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-medium text-slate-700">
+                        Lock status: checking
+                    </span>
+                    <span class="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 font-medium text-slate-700">
+                        {{ current_user.username if current_user else 'Guest' }}
+                    </span>
+                </div>
+            </div>
+        </header>
+    {% endif %}
+
+    <main class="{% if has_auth_shell %}space-y-6 px-4 py-6 lg:px-6{% else %}mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center px-4 py-8{% endif %}">
+        {% if has_auth_shell and disclaimer %}
+        <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {{ disclaimer }}
+        </div>
+        {% endif %}
+
+        {% if has_auth_shell %}
+        <div id="session-timeout-banner" class="hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Session timeout warning: automatic logout expected in <span id="session-timeout-countdown" class="font-semibold">05:00</span>.
+        </div>
+        {% endif %}
+
+        {% block page_content %}{% endblock %}
+    </main>
+
+    {% if has_auth_shell %}
+    </div>
+    {{ ui_modal.confirm_modal('confirm-modal') }}
+    {% endif %}
+
+    <script>
+        (() => {
+            const body = document.body;
+            const sidebar = document.getElementById('app-sidebar');
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+            const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+            const openSidebar = () => {
+                if (!sidebar || !sidebarOverlay) {
+                    return;
+                }
+                sidebar.classList.remove('-translate-x-full');
+                sidebarOverlay.classList.remove('hidden');
+                body.classList.add('overflow-hidden');
+            };
+
+            const closeSidebar = () => {
+                if (!sidebar || !sidebarOverlay) {
+                    return;
+                }
+                sidebar.classList.add('-translate-x-full');
+                sidebarOverlay.classList.add('hidden');
+                body.classList.remove('overflow-hidden');
+            };
+
+            sidebarToggle?.addEventListener('click', openSidebar);
+            sidebarOverlay?.addEventListener('click', closeSidebar);
+            document.querySelectorAll('#app-sidebar a').forEach((link) => {
+                link.addEventListener('click', () => {
+                    if (window.innerWidth < 1024) {
+                        closeSidebar();
+                    }
+                });
+            });
+
+            const modal = document.getElementById('confirm-modal');
+            const modalMessage = modal?.querySelector('[data-modal-message]') || document.getElementById('confirm-modal-message');
+            const modalCancel = modal?.querySelector('[data-modal-cancel]');
+            const modalConfirm = modal?.querySelector('[data-modal-confirm]');
+            const modalCloseSurface = modal?.querySelector('[data-modal-close]');
+            let pendingConfirm = null;
+
+            const closeModal = () => {
+                if (!modal) {
+                    return;
+                }
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                pendingConfirm = null;
+            };
+
+            const openModal = (message, onConfirm) => {
+                if (!modal || !modalMessage) {
+                    if (typeof onConfirm === 'function') {
+                        onConfirm();
+                    }
+                    return;
+                }
+                modalMessage.textContent = message || 'Bekreft handling';
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                pendingConfirm = onConfirm;
+            };
+
+            window.regnskapConfirm = openModal;
+
+            modalCancel?.addEventListener('click', closeModal);
+            modalCloseSurface?.addEventListener('click', closeModal);
+            modalConfirm?.addEventListener('click', () => {
+                const run = pendingConfirm;
+                closeModal();
+                if (typeof run === 'function') {
+                    run();
+                }
+            });
+
+            document.addEventListener('click', (event) => {
+                const target = event.target;
+                if (!(target instanceof Element)) {
+                    return;
+                }
+                const trigger = target.closest('[data-confirm]');
+                if (!trigger) {
+                    return;
+                }
+                if (trigger.tagName === 'FORM') {
+                    return;
+                }
+                const message = trigger.getAttribute('data-confirm') || 'Er du sikker?';
+                if (trigger.tagName === 'A') {
+                    event.preventDefault();
+                    const href = trigger.getAttribute('href');
+                    openModal(message, () => {
+                        if (href) {
+                            window.location.href = href;
+                        }
+                    });
+                    return;
+                }
+                if (trigger.tagName === 'BUTTON') {
+                    const button = trigger;
+                    if (button.type === 'submit') {
+                        return;
+                    }
+                    event.preventDefault();
+                    const action = button.getAttribute('data-confirm-action') || '';
+                    openModal(message, () => {
+                        window.dispatchEvent(new CustomEvent('regnskap:confirmed-action', {
+                            detail: {
+                                action,
+                                triggerId: button.id || '',
+                            },
+                        }));
+                    });
+                }
+            });
+
+            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            const csrfToken = csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
+            document.querySelectorAll('form[method="post"], form[method="POST"]').forEach((form) => {
+                if (!form.querySelector('input[name="csrf_token"]')) {
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'csrf_token';
+                    hidden.value = csrfToken;
+                    form.appendChild(hidden);
+                }
+            });
+
+            document.addEventListener('submit', (event) => {
+                const target = event.target;
+                if (!(target instanceof HTMLFormElement)) {
+                    return;
+                }
+                const method = (target.getAttribute('method') || 'get').toLowerCase();
+                if (method !== 'post') {
+                    return;
+                }
+
+                const submitter = event.submitter instanceof HTMLElement ? event.submitter : null;
+                const confirmMessage = (submitter && submitter.getAttribute('data-confirm')) || target.getAttribute('data-confirm');
+                if (confirmMessage && target.dataset.confirmed !== '1') {
+                    event.preventDefault();
+                    openModal(confirmMessage, () => {
+                        target.dataset.confirmed = '1';
+                        if (typeof target.requestSubmit === 'function') {
+                            target.requestSubmit(submitter || undefined);
+                        } else {
+                            target.submit();
+                        }
+                        window.setTimeout(() => {
+                            delete target.dataset.confirmed;
+                        }, 0);
+                    });
+                    return;
+                }
+
+                const submitButton = submitter || target.querySelector('button[type="submit"], input[type="submit"]');
+                if (!submitButton || submitButton.dataset.loading === '1') {
+                    return;
+                }
+                submitButton.dataset.loading = '1';
+                const loadingText = submitButton.getAttribute('data-loading-text') || submitButton.textContent?.trim() || 'Laster';
+                if (submitButton.tagName === 'BUTTON') {
+                    submitButton.innerHTML = '<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25" stroke-width="4"></circle><path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path></svg>' + loadingText;
+                } else {
+                    submitButton.setAttribute('value', loadingText);
+                }
+                submitButton.setAttribute('disabled', 'disabled');
+            });
+
+            const sessionBanner = document.getElementById('session-timeout-banner');
+            const sessionCountdown = document.getElementById('session-timeout-countdown');
+            const SESSION_SECONDS = 30 * 60;
+            const WARNING_SECONDS = 5 * 60;
+            const SESSION_STORAGE_KEY = 'regnskap:last-activity';
+
+            const markActivity = () => {
+                window.localStorage.setItem(SESSION_STORAGE_KEY, String(Date.now()));
+            };
+
+            if (!window.localStorage.getItem(SESSION_STORAGE_KEY)) {
+                markActivity();
+            }
+
+            let activityTicking = false;
+            const onActivity = () => {
+                if (activityTicking) {
+                    return;
+                }
+                activityTicking = true;
+                window.requestAnimationFrame(() => {
+                    markActivity();
+                    activityTicking = false;
+                });
+            };
+
+            ['click', 'keydown', 'mousemove', 'touchstart'].forEach((name) => {
+                document.addEventListener(name, onActivity, { passive: true });
+            });
+
+            const pad = (value) => String(value).padStart(2, '0');
+            const updateSessionBanner = () => {
+                if (!sessionBanner || !sessionCountdown) {
+                    return;
+                }
+                const lastActivity = Number(window.localStorage.getItem(SESSION_STORAGE_KEY) || Date.now());
+                const elapsed = Math.floor((Date.now() - lastActivity) / 1000);
+                const remaining = Math.max(0, SESSION_SECONDS - elapsed);
+                if (remaining <= WARNING_SECONDS) {
+                    const minutes = Math.floor(remaining / 60);
+                    const seconds = remaining % 60;
+                    sessionCountdown.textContent = `${pad(minutes)}:${pad(seconds)}`;
+                    sessionBanner.classList.remove('hidden');
+                } else {
+                    sessionBanner.classList.add('hidden');
+                }
+            };
+            updateSessionBanner();
+            window.setInterval(updateSessionBanner, 1000);
+
+            const yearIndicator = document.getElementById('fiscal-year-indicator');
+            const lockChip = document.getElementById('lock-status-chip');
+            const resolveYear = () => {
+                const nowYear = new Date().getFullYear();
+                if (!yearIndicator) {
+                    return nowYear;
+                }
+                const explicit = Number(yearIndicator.getAttribute('data-fiscal-year') || lockChip?.getAttribute('data-fiscal-year') || nowYear);
+                if (!Number.isFinite(explicit) || explicit < 1900 || explicit > 2200) {
+                    yearIndicator.textContent = `Fiscal year: ${nowYear}`;
+                    return nowYear;
+                }
+                yearIndicator.textContent = `Fiscal year: ${explicit}`;
+                return explicit;
+            };
+
+            const setLockChip = (state, termLabel) => {
+                if (!lockChip) {
+                    return;
+                }
+                lockChip.className = 'inline-flex items-center rounded-full border px-3 py-1 font-medium';
+                if (state === true) {
+                    lockChip.classList.add('border-rose-200', 'bg-rose-50', 'text-rose-700');
+                    lockChip.textContent = `Lock status: locked (${termLabel})`;
+                    return;
+                }
+                if (state === false) {
+                    lockChip.classList.add('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
+                    lockChip.textContent = `Lock status: unlocked (${termLabel})`;
+                    return;
+                }
+                lockChip.classList.add('border-slate-200', 'bg-slate-50', 'text-slate-700');
+                lockChip.textContent = 'Lock status: unavailable';
+            };
+
+            const parseTermRows = (doc) => {
+                return Array.from(doc.querySelectorAll('[data-term-row]')).map((row) => ({
+                    year: Number(row.getAttribute('data-year') || 0),
+                    period: Number(row.getAttribute('data-period') || 0),
+                    start: row.getAttribute('data-start') || '',
+                    end: row.getAttribute('data-end') || '',
+                    locked: row.getAttribute('data-locked') === '1',
+                }));
+            };
+
+            const currentTermForDate = (rows, isoDate) => {
+                return rows.find((row) => row.start <= isoDate && row.end >= isoDate) || null;
+            };
+
+            const refreshLockStatus = async () => {
+                if (!lockChip) {
+                    return;
+                }
+                try {
+                    const year = resolveYear();
+                    const response = await window.fetch(`/settings?year=${year}`, { credentials: 'same-origin' });
+                    if (!response.ok) {
+                        setLockChip(null, 'term');
+                        return;
+                    }
+                    const html = await response.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const terms = parseTermRows(doc);
+                    const today = new Date().toISOString().slice(0, 10);
+                    const term = currentTermForDate(terms, today);
+                    if (!term) {
+                        setLockChip(null, 'term');
+                        return;
+                    }
+                    setLockChip(term.locked, `T${term.period}`);
+                    document.dispatchEvent(new CustomEvent('regnskap:lock-status', {
+                        detail: {
+                            year,
+                            period: term.period,
+                            locked: term.locked,
+                            terms,
+                        },
+                    }));
+                } catch (error) {
+                    setLockChip(null, 'term');
+                }
+            };
+
+            refreshLockStatus();
+        })();
+    </script>
+    {% block page_scripts %}{% endblock %}
+</body>
+</html>

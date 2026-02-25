@@ -1,32 +1,38 @@
-<!DOCTYPE html>
-<html lang="no">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bootstrap admin - Mini Regnskap</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <main class="container">
-        <section class="card" style="max-width: 520px; margin: 60px auto;">
-            <h1>Opprett lokal admin</h1>
-            <p>Dette ma gjores en gang per database.</p>
-            <form method="post" action="/bootstrap-admin">
-                <label>Brukernavn
-                    <input type="text" name="username" required minlength="3">
-                </label>
-                <label>Passord
-                    <input type="password" name="password" required minlength="8">
-                </label>
-                <label>Gjenta passord
-                    <input type="password" name="password_confirm" required minlength="8">
-                </label>
-                {% if error %}
-                    <p class="error">{{ error }}</p>
-                {% endif %}
-                <button type="submit">Opprett admin</button>
-            </form>
-        </section>
-    </main>
-</body>
-</html>
+{% extends "layouts/base.html" %}
+{% set auth_layout = False %}
+{% import "components/card.html" as ui_card %}
+{% import "components/button.html" as ui_button %}
+
+{% block page_title %}Bootstrap admin | Mini Regnskap{% endblock %}
+
+{% block page_content %}
+<section class="{{ ui_card.classes('w-full max-w-lg') }}">
+    <h1 class="text-2xl font-semibold text-slate-900">Opprett lokal admin</h1>
+    <p class="mt-1 text-sm text-slate-600">Dette steget gjores kun en gang per database.</p>
+
+    <form class="mt-6 grid gap-4" method="post" action="/bootstrap-admin">
+        <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
+
+        <div>
+            <label for="bootstrap-username" class="block text-sm font-medium text-slate-700">Brukernavn</label>
+            <input id="bootstrap-username" type="text" name="username" required minlength="3" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+        </div>
+
+        <div>
+            <label for="bootstrap-password" class="block text-sm font-medium text-slate-700">Passord</label>
+            <input id="bootstrap-password" type="password" name="password" required minlength="8" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+        </div>
+
+        <div>
+            <label for="bootstrap-password-confirm" class="block text-sm font-medium text-slate-700">Gjenta passord</label>
+            <input id="bootstrap-password-confirm" type="password" name="password_confirm" required minlength="8" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+        </div>
+
+        {% if error %}
+        <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ error }}</div>
+        {% endif %}
+
+        <button type="submit" class="{{ ui_button.classes('primary') }}" data-loading-text="Oppretter admin">Opprett admin</button>
+    </form>
+</section>
+{% endblock %}

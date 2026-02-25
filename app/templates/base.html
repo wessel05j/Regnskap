@@ -1,34 +1,5 @@
-<!DOCTYPE html>
-<html lang="no">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ settings.company_name }} - Mini Regnskap</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <header class="topbar">
-        <div class="brand">{{ settings.company_name }}</div>
-        {% if current_user %}
-            <nav class="nav">
-                <a href="/" class="{% if active_nav == 'dashboard' %}active{% endif %}">Dashboard</a>
-                <a href="/vouchers" class="{% if active_nav == 'vouchers' %}active{% endif %}">Vouchers</a>
-                <a href="/reports" class="{% if active_nav == 'reports' %}active{% endif %}">Rapporter</a>
-                <a href="/settings" class="{% if active_nav == 'settings' %}active{% endif %}">Settings</a>
-                <a href="/incomes" class="{% if active_nav == 'incomes' %}active{% endif %}">Legacy inntekter</a>
-                <a href="/expenses" class="{% if active_nav == 'expenses' %}active{% endif %}">Legacy utgifter</a>
-            </nav>
-            <form method="post" action="/logout">
-                <button type="submit">Logg ut ({{ current_user.username }})</button>
-            </form>
-        {% endif %}
-    </header>
+{% extends "layouts/base.html" %}
 
-    <main class="container">
-        {% if disclaimer %}
-            <div class="disclaimer">{{ disclaimer }}</div>
-        {% endif %}
-        {% block content %}{% endblock %}
-    </main>
-</body>
-</html>
+{% block page_content %}
+{% block content %}{% endblock %}
+{% endblock %}

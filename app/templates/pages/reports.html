@@ -1,0 +1,450 @@
+{% extends "layouts/base.html" %}
+{% import "components/card.html" as ui_card %}
+{% import "components/button.html" as ui_button %}
+{% import "components/badge.html" as ui_badge %}
+
+{% block page_title %}Reports | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+
+{% block page_content %}
+<section class="{{ ui_card.classes() }}">
+    <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-slate-900">Reports</h1>
+            <p class="mt-1 text-sm text-slate-600">Journal, account, VAT and yearly overview from ledger data.</p>
+        </div>
+
+        <form method="get" action="/reports" class="grid w-full gap-3 md:grid-cols-3 xl:w-auto">
+            <div>
+                <label for="reports-year" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Fiscal year</label>
+                <select id="reports-year" name="year" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                    {% for year in years %}
+                    <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="reports-term" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">VAT term</label>
+                <select id="reports-term" name="term" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                    {% for idx, label in terms %}
+                    <option value="{{ idx }}" {% if idx == selected_term %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Oppdaterer">Update view</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Report tabs">
+        <button type="button" class="report-tab {{ ui_button.classes('primary') }}" data-report-tab-target="year">Year overview</button>
+        <button type="button" class="report-tab {{ ui_button.classes('secondary') }}" data-report-tab-target="vat">VAT specification</button>
+        <button type="button" class="report-tab {{ ui_button.classes('secondary') }}" data-report-tab-target="journal">Journal</button>
+        <button type="button" class="report-tab {{ ui_button.classes('secondary') }}" data-report-tab-target="accounts">Account specification</button>
+    </div>
+</section>
+
+<div data-report-tab="year" class="report-tab-panel space-y-6">
+    <section class="{{ ui_card.classes() }} space-y-4">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-900">Year overview</h2>
+                <p class="text-sm text-slate-600">Summary from ledger for {{ selected_year }}.</p>
+            </div>
+            <form method="post" action="/reports/yearly">
+                <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
+                <input type="hidden" name="year" value="{{ selected_year }}">
+                <button type="submit" class="{{ ui_button.classes('primary') }}" data-loading-text="Genererer arsrapport">Download yearly PDF</button>
+            </form>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-3">
+            <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Revenue</p>
+                <p class="mt-2 text-xl font-semibold text-slate-900">{{ "%.2f"|format(year_data.income_total_nok) }} NOK</p>
+            </article>
+            <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Expenses</p>
+                <p class="mt-2 text-xl font-semibold text-slate-900">{{ "%.2f"|format(year_data.expense_total_nok) }} NOK</p>
+            </article>
+            <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Result</p>
+                <p class="mt-2 text-xl font-semibold {% if year_data.result_nok >= 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ "%.2f"|format(year_data.result_nok) }} NOK</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="{{ ui_card.classes() }}">
+        <h3 class="text-base font-semibold text-slate-900">Year transaction preview (first 20)</h3>
+        <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <tr>
+                        <th class="px-3 py-2">Date</th>
+                        <th class="px-3 py-2">Type</th>
+                        <th class="px-3 py-2">Label</th>
+                        <th class="px-3 py-2 text-right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for tx in year_data.transactions[:20] %}
+                    <tr>
+                        <td class="whitespace-nowrap px-3 py-2 text-slate-700">{{ tx.date }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-slate-700">{{ tx.type }}</td>
+                        <td class="px-3 py-2 text-slate-700">{{ tx.label }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-right text-slate-900">{{ "%.2f"|format(tx.amount_nok) }} NOK</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="px-3 py-8 text-center text-slate-500">No transactions in selected year.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<div data-report-tab="vat" class="report-tab-panel hidden space-y-6">
+    {% include "pages/vat.html" %}
+</div>
+
+<div data-report-tab="journal" class="report-tab-panel hidden space-y-6">
+    <section class="{{ ui_card.classes() }} space-y-4">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-900">Journal specification</h2>
+                <p class="text-sm text-slate-600">Generate PDF/CSV and preview first 20 rows inline.</p>
+            </div>
+            <button id="journal-preview-button" type="button" class="{{ ui_button.classes('secondary') }}">Load preview</button>
+        </div>
+
+        <div class="grid gap-3 md:grid-cols-3">
+            <div>
+                <label for="journal-start-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Start date</label>
+                <input id="journal-start-date" type="date" value="{{ vat_data.start_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            </div>
+            <div>
+                <label for="journal-end-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">End date</label>
+                <input id="journal-end-date" type="date" value="{{ vat_data.end_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            </div>
+            <div class="flex items-end gap-2">
+                <form id="journal-pdf-form" method="post" action="/reports/journal/pdf" class="w-full">
+                    <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
+                    <input type="hidden" name="start_date" value="{{ vat_data.start_date }}">
+                    <input type="hidden" name="end_date" value="{{ vat_data.end_date }}">
+                    <button type="submit" class="{{ ui_button.classes('primary') }} w-full" data-loading-text="Genererer PDF">Export PDF</button>
+                </form>
+                <form id="journal-csv-form" method="post" action="/reports/journal/csv" class="w-full">
+                    <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
+                    <input type="hidden" name="start_date" value="{{ vat_data.start_date }}">
+                    <input type="hidden" name="end_date" value="{{ vat_data.end_date }}">
+                    <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Laster CSV">Export CSV</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-200">
+            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <tr>
+                        <th class="px-3 py-2">Date</th>
+                        <th class="px-3 py-2">Voucher</th>
+                        <th class="px-3 py-2">Line</th>
+                        <th class="px-3 py-2">Account</th>
+                        <th class="px-3 py-2 text-right">Debet</th>
+                        <th class="px-3 py-2 text-right">Kredit</th>
+                        <th class="px-3 py-2">mvaKode</th>
+                    </tr>
+                </thead>
+                <tbody id="journal-preview-body" class="divide-y divide-slate-100">
+                    <tr>
+                        <td colspan="7" class="px-3 py-8 text-center text-slate-500">Preview not loaded.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<div data-report-tab="accounts" class="report-tab-panel hidden space-y-6">
+    {% include "pages/accounts.html" %}
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    (() => {
+        const selectedYear = Number({{ selected_year|int }});
+        const selectedTerm = Number({{ selected_term|int }});
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+        const parseCsv = (text) => {
+            const rows = [];
+            let value = '';
+            let current = [];
+            let quoted = false;
+            for (let index = 0; index < text.length; index += 1) {
+                const char = text[index];
+                if (char === '"') {
+                    if (quoted && text[index + 1] === '"') {
+                        value += '"';
+                        index += 1;
+                    } else {
+                        quoted = !quoted;
+                    }
+                } else if (char === ';' && !quoted) {
+                    current.push(value);
+                    value = '';
+                } else if ((char === '\n' || char === '\r') && !quoted) {
+                    if (char === '\r' && text[index + 1] === '\n') {
+                        index += 1;
+                    }
+                    if (value.length || current.length) {
+                        current.push(value);
+                        rows.push(current);
+                        current = [];
+                        value = '';
+                    }
+                } else {
+                    value += char;
+                }
+            }
+            if (value.length || current.length) {
+                current.push(value);
+                rows.push(current);
+            }
+            if (!rows.length) {
+                return [];
+            }
+            const headers = rows[0];
+            return rows.slice(1).map((columns) => {
+                const row = {};
+                headers.forEach((header, idx) => {
+                    row[header] = columns[idx] ?? '';
+                });
+                return row;
+            });
+        };
+
+        const tabButtons = Array.from(document.querySelectorAll('[data-report-tab-target]'));
+        const tabPanels = Array.from(document.querySelectorAll('[data-report-tab]'));
+
+        const activateTab = (tabKey, pushHash = true) => {
+            tabPanels.forEach((panel) => {
+                if (panel.getAttribute('data-report-tab') === tabKey) {
+                    panel.classList.remove('hidden');
+                } else {
+                    panel.classList.add('hidden');
+                }
+            });
+            tabButtons.forEach((button) => {
+                const active = button.getAttribute('data-report-tab-target') === tabKey;
+                if (active) {
+                    button.classList.remove('bg-white', 'text-slate-700', 'border', 'border-slate-300');
+                    button.classList.add('bg-indigo-600', 'text-white');
+                } else {
+                    button.classList.remove('bg-indigo-600', 'text-white');
+                    button.classList.add('bg-white', 'text-slate-700', 'border', 'border-slate-300');
+                }
+            });
+            if (pushHash) {
+                window.history.replaceState({}, '', `#${tabKey}`);
+            }
+        };
+
+        tabButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const tabKey = button.getAttribute('data-report-tab-target');
+                if (tabKey) {
+                    activateTab(tabKey);
+                }
+            });
+        });
+
+        const hashTab = window.location.hash.replace('#', '').trim();
+        const allowedTabs = new Set(['year', 'vat', 'journal', 'accounts']);
+        activateTab(allowedTabs.has(hashTab) ? hashTab : 'year', false);
+
+        const syncRangeFields = (startId, endId, formIds, accountInputId = null) => {
+            const startInput = document.getElementById(startId);
+            const endInput = document.getElementById(endId);
+            const accountInput = accountInputId ? document.getElementById(accountInputId) : null;
+
+            const push = () => {
+                formIds.forEach((formId) => {
+                    const form = document.getElementById(formId);
+                    if (!form) {
+                        return;
+                    }
+                    const startField = form.querySelector('input[name="start_date"]');
+                    const endField = form.querySelector('input[name="end_date"]');
+                    const accountField = form.querySelector('input[name="account_no"]');
+                    if (startField && startInput) {
+                        startField.value = startInput.value;
+                    }
+                    if (endField && endInput) {
+                        endField.value = endInput.value;
+                    }
+                    if (accountField && accountInput) {
+                        accountField.value = accountInput.value;
+                    }
+                });
+            };
+
+            startInput?.addEventListener('change', push);
+            endInput?.addEventListener('change', push);
+            accountInput?.addEventListener('input', push);
+            push();
+            return { startInput, endInput, accountInput, push };
+        };
+
+        const journalRange = syncRangeFields('journal-start-date', 'journal-end-date', ['journal-pdf-form', 'journal-csv-form']);
+        const accountRange = syncRangeFields('accounts-start-date', 'accounts-end-date', ['accounts-pdf-form', 'accounts-csv-form'], 'accounts-account-no');
+
+        const renderRows = (tbody, rows, columns) => {
+            if (!tbody) {
+                return;
+            }
+            if (!rows.length) {
+                tbody.innerHTML = `<tr><td colspan="${columns.length}" class="px-3 py-8 text-center text-slate-500">No rows for selected range.</td></tr>`;
+                return;
+            }
+            const html = rows.slice(0, 20).map((row) => {
+                const cells = columns.map((column) => `<td class="whitespace-nowrap px-3 py-2 text-slate-700">${row[column] || '-'}</td>`).join('');
+                return `<tr>${cells}</tr>`;
+            }).join('');
+            tbody.innerHTML = html;
+        };
+
+        const loadJournalPreview = async () => {
+            const tbody = document.getElementById('journal-preview-body');
+            if (!tbody || !journalRange.startInput || !journalRange.endInput) {
+                return;
+            }
+            tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-500">Loading preview...</td></tr>';
+            try {
+                const payload = new URLSearchParams({
+                    start_date: journalRange.startInput.value,
+                    end_date: journalRange.endInput.value,
+                    csrf_token: csrfToken,
+                });
+                const response = await fetch('/reports/journal/csv', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: payload.toString(),
+                });
+                if (!response.ok) {
+                    throw new Error('journal preview failed');
+                }
+                const rows = parseCsv(await response.text());
+                renderRows(tbody, rows, ['posting_date', 'voucher_ref', 'line_no', 'account_no', 'debit_nok', 'credit_nok', 'mva_code']);
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-8 text-center text-rose-700">Unable to load journal preview.</td></tr>';
+            }
+        };
+
+        const loadAccountsPreview = async () => {
+            const tbody = document.getElementById('accounts-preview-body');
+            if (!tbody || !accountRange.startInput || !accountRange.endInput) {
+                return;
+            }
+            tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-500">Loading preview...</td></tr>';
+            try {
+                const payload = new URLSearchParams({
+                    start_date: accountRange.startInput.value,
+                    end_date: accountRange.endInput.value,
+                    account_no: accountRange.accountInput?.value || '',
+                    csrf_token: csrfToken,
+                });
+                const response = await fetch('/reports/accounts/csv', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: payload.toString(),
+                });
+                if (!response.ok) {
+                    throw new Error('accounts preview failed');
+                }
+                const rows = parseCsv(await response.text());
+                renderRows(tbody, rows, ['account_no', 'posting_date', 'voucher_ref', 'debit_nok', 'credit_nok', 'running_balance_nok', 'description']);
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-8 text-center text-rose-700">Unable to load account preview.</td></tr>';
+            }
+        };
+
+        document.getElementById('journal-preview-button')?.addEventListener('click', loadJournalPreview);
+        document.getElementById('accounts-preview-button')?.addEventListener('click', loadAccountsPreview);
+
+        const warningBanner = document.getElementById('term-lock-warning');
+        const refreshTermWarning = async () => {
+            if (!warningBanner) {
+                return;
+            }
+            try {
+                const response = await fetch(`/settings?year=${selectedYear}`, { credentials: 'same-origin' });
+                if (!response.ok) {
+                    return;
+                }
+                const html = await response.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const row = doc.querySelector(`[data-term-row][data-period="${selectedTerm}"]`);
+                const isLocked = row?.getAttribute('data-locked') === '1';
+                if (isLocked) {
+                    warningBanner.classList.add('hidden');
+                } else {
+                    warningBanner.classList.remove('hidden');
+                }
+            } catch (error) {
+                warningBanner.classList.remove('hidden');
+            }
+        };
+
+        const vatDetails = Array.from(document.querySelectorAll('[data-vat-drilldown]'));
+        vatDetails.forEach((detail) => {
+            detail.addEventListener('toggle', async () => {
+                if (!detail.open || detail.getAttribute('data-loaded') === '1') {
+                    return;
+                }
+                const code = detail.getAttribute('data-mva-code');
+                const target = detail.querySelector('[data-drilldown-content]');
+                if (!code || !target) {
+                    return;
+                }
+                target.innerHTML = '<p class="text-sm text-slate-500">Loading drilldown...</p>';
+                try {
+                    const response = await fetch(`/reports/mva/drilldown?year=${selectedYear}&term=${selectedTerm}&mva_code=${encodeURIComponent(code)}`);
+                    if (!response.ok) {
+                        throw new Error('drilldown fetch failed');
+                    }
+                    const payload = await response.json();
+                    const rows = payload.lines || [];
+                    if (!rows.length) {
+                        target.innerHTML = '<p class="text-sm text-slate-500">No drilldown rows.</p>';
+                        detail.setAttribute('data-loaded', '1');
+                        return;
+                    }
+                    const tableRows = rows.map((line) => {
+                        return `<tr>
+                            <td class="px-2 py-1">${line.voucher_ref || '-'}</td>
+                            <td class="px-2 py-1">${line.posting_date || '-'}</td>
+                            <td class="px-2 py-1">${line.counterparty_name || '-'}</td>
+                            <td class="px-2 py-1 text-right">${line.grunnlag_nok ?? '-'}</td>
+                            <td class="px-2 py-1 text-right">${line.merverdiavgift_nok ?? '-'}</td>
+                        </tr>`;
+                    }).join('');
+                    target.innerHTML = `<div class="overflow-x-auto rounded border border-slate-200"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th class="px-2 py-1">Voucher</th><th class="px-2 py-1">Date</th><th class="px-2 py-1">Counterparty</th><th class="px-2 py-1 text-right">Base</th><th class="px-2 py-1 text-right">VAT</th></tr></thead><tbody class="divide-y divide-slate-100">${tableRows}</tbody></table></div>`;
+                    detail.setAttribute('data-loaded', '1');
+                } catch (error) {
+                    target.innerHTML = '<p class="text-sm text-rose-700">Unable to load drilldown.</p>';
+                }
+            });
+        });
+
+        refreshTermWarning();
+    })();
+</script>
+{% endblock %}
