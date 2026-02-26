@@ -3,30 +3,30 @@
 {% import "components/button.html" as ui_button %}
 {% import "components/badge.html" as ui_badge %}
 
-{% block page_title %}Voucher {{ voucher.voucher_series }}-{{ voucher.voucher_no }} | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+{% block page_title %}Bilag {{ voucher.voucher_series }}-{{ voucher.voucher_no }} | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
 
 {% block page_content %}
 <section class="{{ ui_card.classes() }}">
     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-            <h1 class="text-2xl font-semibold text-slate-900">Voucher {{ voucher.voucher_series }}-{{ voucher.voucher_no }}</h1>
-            <p class="mt-1 text-sm text-slate-600">Detailed voucher view with line-level VAT and attachments.</p>
+            <h1 class="text-2xl font-semibold text-slate-900">Bilag {{ voucher.voucher_series }}-{{ voucher.voucher_no }}</h1>
+            <p class="mt-1 text-sm text-slate-600">Detaljvisning med posteringer, MVA og vedlegg.</p>
             <div class="mt-3 flex flex-wrap items-center gap-2">
                 {% if voucher.status and voucher.status|lower == 'posted' %}
-                <span class="{{ ui_badge.classes('success') }}">POSTED</span>
-                {% elif voucher.status and voucher.status|lower == 'locked' %}
-                <span class="{{ ui_badge.classes('danger') }}">LOCKED</span>
-                {% else %}
+                <span class="{{ ui_badge.classes('success') }}">BOKFØRT</span>
+            {% elif voucher.status and voucher.status|lower == 'locked' %}
+                <span class="{{ ui_badge.classes('danger') }}">LÅST</span>
+            {% else %}
                 <span class="{{ ui_badge.classes('neutral') }}">{{ voucher.status|upper if voucher.status else 'N/A' }}</span>
-                {% endif %}
-                {% if voucher.voucher_type|lower == 'reversal' %}
-                <span class="{{ ui_badge.classes('danger') }}">REVERSAL</span>
-                {% endif %}
+            {% endif %}
+            {% if voucher.voucher_type|lower == 'reversal' %}
+                <span class="{{ ui_badge.classes('danger') }}">REVERSERING</span>
+            {% endif %}
             </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <a href="/vouchers" class="{{ ui_button.classes('secondary') }}">Back to list</a>
-            <a href="/vouchers/{{ voucher.id }}/correct" class="{{ ui_button.classes('primary') }}" data-confirm="Create correction flow? This will create reversal + corrected voucher after submit.">Opprett korreksjon</a>
+            <a href="/vouchers" class="{{ ui_button.classes('secondary') }}">Tilbake til liste</a>
+            <a href="/vouchers/{{ voucher.id }}/correct" class="{{ ui_button.classes('primary') }}" data-confirm="Opprett korreksjon? Systemet lager reversering + korrigert bilag ved lagring.">Opprett korreksjon</a>
         </div>
     </div>
 
@@ -36,11 +36,11 @@
             <dd class="mt-1 text-slate-900">{{ voucher.voucher_type }}</dd>
         </div>
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Document date</dt>
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Dokumentdato</dt>
             <dd class="mt-1 text-slate-900">{{ voucher.document_date }}</dd>
         </div>
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Posting date</dt>
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Bokføringsdato</dt>
             <dd class="mt-1 text-slate-900">{{ voucher.posting_date }}</dd>
         </div>
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -48,11 +48,11 @@
             <dd class="mt-1 font-medium text-slate-900">{{ voucher.total_nok }}</dd>
         </div>
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 md:col-span-2">
-            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Counterparty</dt>
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Motpart</dt>
             <dd class="mt-1 text-slate-900">{{ voucher.counterparty_name or '-' }}</dd>
         </div>
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 md:col-span-2">
-            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Description</dt>
+            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Beskrivelse</dt>
             <dd class="mt-1 text-slate-900">{{ voucher.description or '-' }}</dd>
         </div>
     </dl>
@@ -60,26 +60,26 @@
     {% if voucher.bilag_id %}
     <div class="mt-4">
         <a href="/bilag/{{ voucher.bilag_id }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500 hover:underline">
-            Download voucher attachment: {{ voucher.bilag_original_name or 'Bilag' }}
+            Last ned vedlegg: {{ voucher.bilag_original_name or 'Bilag' }}
         </a>
     </div>
     {% endif %}
 </section>
 
 <section class="{{ ui_card.classes() }}">
-    <h2 class="text-lg font-semibold text-slate-900">Line items</h2>
+    <h2 class="text-lg font-semibold text-slate-900">Posteringer</h2>
     <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
                     <th class="px-3 py-2">#</th>
-                    <th class="px-3 py-2">Account</th>
+                    <th class="px-3 py-2">Konto</th>
                     <th class="px-3 py-2 text-right">Debet</th>
                     <th class="px-3 py-2 text-right">Kredit</th>
-                    <th class="px-3 py-2">Description</th>
+                    <th class="px-3 py-2">Beskrivelse</th>
                     <th class="px-3 py-2">mvaKode</th>
-                    <th class="px-3 py-2">Rate</th>
-                    <th class="px-3 py-2 text-right">Base</th>
+                    <th class="px-3 py-2">Sats</th>
+                    <th class="px-3 py-2 text-right">Grunnlag</th>
                     <th class="px-3 py-2 text-right">VAT</th>
                     <th class="px-3 py-2">Bilag</th>
                 </tr>
@@ -104,7 +104,7 @@
                     <td class="whitespace-nowrap px-3 py-2 text-right text-slate-700">{{ line.vat_amount_nok if line.vat_amount_nok is not none else '-' }}</td>
                     <td class="whitespace-nowrap px-3 py-2 text-slate-700">
                         {% if line.bilag_id %}
-                        <a href="/bilag/{{ line.bilag_id }}" class="text-indigo-600 hover:text-indigo-500 hover:underline">{{ line.bilag_original_name or 'Download' }}</a>
+                        <a href="/bilag/{{ line.bilag_id }}" class="text-indigo-600 hover:text-indigo-500 hover:underline">{{ line.bilag_original_name or 'Last ned' }}</a>
                         {% else %}
                         -
                         {% endif %}
@@ -118,7 +118,7 @@
 
 {% if voucher.related_vouchers %}
 <section class="{{ ui_card.classes() }}">
-    <h2 class="text-lg font-semibold text-slate-900">Related vouchers</h2>
+    <h2 class="text-lg font-semibold text-slate-900">Relaterte bilag</h2>
     <ul class="mt-4 space-y-2 text-sm">
         {% for related in voucher.related_vouchers %}
         <li class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">

@@ -15,14 +15,14 @@ def test_year_summary_uses_nok_values() -> None:
             "date": "2026-03-10",
             "amount_original": 1000,
             "currency": "NOK",
-            "source": "YouTube/Google AdSense",
+            "source": "Eksempelplattform",
             "note": "",
         }
     )
     expense = schemas.ExpenseInput.model_validate(
         {
             "date": "2026-03-12",
-            "vendor": "Komplett",
+            "vendor": "Leverandor Demo",
             "category": "Utstyr",
             "amount_original": 250,
             "currency": "NOK",
@@ -47,14 +47,14 @@ def test_term_summary_calculates_input_output_vat() -> None:
             "date": "2026-01-15",
             "amount_original": 5000,
             "currency": "NOK",
-            "source": "Other",
+            "source": "Eksempelkunde",
             "note": "",
         }
     )
     expense = schemas.ExpenseInput.model_validate(
         {
             "date": "2026-02-01",
-            "vendor": "Telenor",
+            "vendor": "Tjenesteleverandor Demo",
             "category": "Telefon/Internett",
             "amount_original": 1200,
             "currency": "NOK",
@@ -86,7 +86,7 @@ def test_crud_create_and_read_income() -> None:
             "amount_original": 899,
             "currency": "EUR",
             "amount_nok": 10300,
-            "source": "YouTube/Google AdSense",
+            "source": "Eksempelplattform",
             "note": "Test",
         }
     )
@@ -94,5 +94,5 @@ def test_crud_create_and_read_income() -> None:
 
     loaded = crud.get_income(income_id)
     assert loaded is not None
-    assert loaded["source"] == "YouTube/Google AdSense"
+    assert loaded["source"] == "Eksempelplattform"
     assert loaded["amount_nok"] == 10300.0

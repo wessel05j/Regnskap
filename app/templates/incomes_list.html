@@ -3,35 +3,35 @@
 {% import "components/button.html" as ui_button %}
 {% import "components/badge.html" as ui_badge %}
 
-{% block page_title %}Legacy incomes | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+{% block page_title %}Legacy-inntekter | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
 
 {% block page_content %}
 <section class="{{ ui_card.classes() }}">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-            <h1 class="text-2xl font-semibold text-slate-900">Legacy incomes</h1>
-            <p class="mt-1 text-sm text-slate-600">Read-only historical data from legacy table.</p>
+            <h1 class="text-2xl font-semibold text-slate-900">Legacy-inntekter</h1>
+            <p class="mt-1 text-sm text-slate-600">Historiske data fra legacy-tabell (kun lesing).</p>
         </div>
         {% if legacy_read_only %}
-        <span class="{{ ui_badge.classes('warning') }}">READ ONLY</span>
+        <span class="{{ ui_badge.classes('warning') }}">KUN LESING</span>
         {% endif %}
     </div>
 
     <form class="mt-6 grid gap-3 md:grid-cols-4" method="get" action="/incomes">
         <div>
-            <label for="income-start" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Date from</label>
+            <label for="income-start" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Fra dato</label>
             <input id="income-start" type="date" name="start_date" value="{{ filters.start_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div>
-            <label for="income-end" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Date to</label>
+            <label for="income-end" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Til dato</label>
             <input id="income-end" type="date" name="end_date" value="{{ filters.end_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div>
-            <label for="income-q" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Search</label>
-            <input id="income-q" type="text" name="q" value="{{ filters.q }}" placeholder="Source / note" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            <label for="income-q" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Søk</label>
+            <input id="income-q" type="text" name="q" value="{{ filters.q }}" placeholder="Kilde / notat" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div class="flex items-end">
-            <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Filtrerer">Apply filters</button>
+            <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Filtrerer">Filtrer</button>
         </div>
     </form>
 </section>
@@ -41,11 +41,11 @@
         <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
-                    <th class="px-3 py-2">Date</th>
-                    <th class="px-3 py-2">Source</th>
-                    <th class="px-3 py-2">Amount</th>
+                    <th class="px-3 py-2">Dato</th>
+                    <th class="px-3 py-2">Kilde</th>
+                    <th class="px-3 py-2">Beløp</th>
                     <th class="px-3 py-2">NOK</th>
-                    <th class="px-3 py-2">Attachment</th>
+                    <th class="px-3 py-2">Vedlegg</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -58,12 +58,12 @@
                         {% if row.amount_nok is not none %}
                         {{ "%.2f"|format(row.amount_nok) }}
                         {% else %}
-                        Missing
+                        Mangler
                         {% endif %}
                     </td>
                     <td class="whitespace-nowrap px-3 py-2 text-slate-700">
                         {% if row.attachment_stored_name %}
-                        <a href="/attachments/income/{{ row.id }}" class="text-indigo-600 hover:text-indigo-500 hover:underline">Download</a>
+                        <a href="/attachments/income/{{ row.id }}" class="text-indigo-600 hover:text-indigo-500 hover:underline">Last ned</a>
                         {% else %}
                         -
                         {% endif %}
@@ -71,7 +71,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="px-3 py-10 text-center text-slate-500">No legacy incomes found.</td>
+                    <td colspan="5" class="px-3 py-10 text-center text-slate-500">Ingen legacy-inntekter funnet.</td>
                 </tr>
                 {% endfor %}
             </tbody>

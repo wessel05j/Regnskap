@@ -1,0 +1,97 @@
+{% extends "layouts/base.html" %}
+{% import "components/card.html" as ui_card %}
+{% import "components/button.html" as ui_button %}
+
+{% block page_title %}Kom i gang | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+
+{% block page_content %}
+<section class="{{ ui_card.classes() }}">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-slate-900">Kom i gang (ENK)</h1>
+            <p class="mt-1 text-sm text-slate-600">Kort, praktisk flyt for daglig bruk.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="/learn" class="{{ ui_button.classes('secondary') }}">Begrepsliste</a>
+            <a href="/vouchers/new" class="{{ ui_button.classes('primary') }}">Nytt bilag</a>
+        </div>
+    </div>
+</section>
+
+<section class="{{ ui_card.classes() }} space-y-4">
+    {% for step in getting_started_steps %}
+    <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <h2 class="text-sm font-semibold text-slate-900">{{ step.id }}) {{ step.title }}</h2>
+        <p class="mt-1 text-sm text-slate-700">{{ step.body }}</p>
+    </article>
+    {% endfor %}
+</section>
+
+<section class="{{ ui_card.classes() }} space-y-4">
+    <h2 class="text-lg font-semibold text-slate-900">Eksempel: Prosjektinntekt</h2>
+    <p class="text-sm text-slate-700">Når utbetaling kommer inn på konto, kan du bruke dette som start:</p>
+    <div class="overflow-x-auto rounded-lg border border-slate-200">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                    <th class="px-3 py-2">Konto</th>
+                    <th class="px-3 py-2 text-right">Debet</th>
+                    <th class="px-3 py-2 text-right">Kredit</th>
+                    <th class="px-3 py-2">Kommentar</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <tr>
+                    <td class="px-3 py-2 text-slate-700">1920 Bank</td>
+                    <td class="px-3 py-2 text-right text-slate-700">10 000</td>
+                    <td class="px-3 py-2 text-right text-slate-700">0</td>
+                    <td class="px-3 py-2 text-slate-700">Innbetaling fra kundeplattform</td>
+                </tr>
+                <tr>
+                    <td class="px-3 py-2 text-slate-700">3100 Salgsinntekt avgiftsfri</td>
+                    <td class="px-3 py-2 text-right text-slate-700">0</td>
+                    <td class="px-3 py-2 text-right text-slate-700">10 000</td>
+                    <td class="px-3 py-2 text-slate-700">Bruk 3000/mvaKode hvis salget er MVA-pliktig</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="{{ ui_card.classes() }} space-y-4">
+    <h2 class="text-lg font-semibold text-slate-900">Eksempel: PC-kjøp med MVA</h2>
+    <p class="text-sm text-slate-700">Hvis totalbeløp er 12 500 (inkl. 25 % MVA):</p>
+    <div class="overflow-x-auto rounded-lg border border-slate-200">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                    <th class="px-3 py-2">Konto</th>
+                    <th class="px-3 py-2 text-right">Debet</th>
+                    <th class="px-3 py-2 text-right">Kredit</th>
+                    <th class="px-3 py-2">Kommentar</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <tr>
+                    <td class="px-3 py-2 text-slate-700">4000/5000 Kostnad</td>
+                    <td class="px-3 py-2 text-right text-slate-700">10 000</td>
+                    <td class="px-3 py-2 text-right text-slate-700">0</td>
+                    <td class="px-3 py-2 text-slate-700">Netto grunnlag</td>
+                </tr>
+                <tr>
+                    <td class="px-3 py-2 text-slate-700">2720 Inngående MVA</td>
+                    <td class="px-3 py-2 text-right text-slate-700">2 500</td>
+                    <td class="px-3 py-2 text-right text-slate-700">0</td>
+                    <td class="px-3 py-2 text-slate-700">mvaKode 81, sats 25 %</td>
+                </tr>
+                <tr>
+                    <td class="px-3 py-2 text-slate-700">1920 Bank</td>
+                    <td class="px-3 py-2 text-right text-slate-700">0</td>
+                    <td class="px-3 py-2 text-right text-slate-700">12 500</td>
+                    <td class="px-3 py-2 text-slate-700">Utbetaling</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

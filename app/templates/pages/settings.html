@@ -2,34 +2,35 @@
 {% import "components/card.html" as ui_card %}
 {% import "components/button.html" as ui_button %}
 {% import "components/badge.html" as ui_badge %}
+{% import "components/help_tooltip.html" as ui_help %}
 
-{% block page_title %}Settings | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+{% block page_title %}Innstillinger | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
 
 {% block page_content %}
 <section class="{{ ui_card.classes() }}">
-    <h1 class="text-2xl font-semibold text-slate-900">Settings</h1>
-    <p class="mt-1 text-sm text-slate-600">Company profile, lock management and one-time migration tasks.</p>
+    <h1 class="text-2xl font-semibold text-slate-900">Innstillinger</h1>
+    <p class="mt-1 text-sm text-slate-600">Firmaopplysninger, terminhåndtering og import/migrering.</p>
 </section>
 
 <section class="{{ ui_card.classes() }} space-y-4">
-    <h2 class="text-lg font-semibold text-slate-900">Company settings</h2>
+    <h2 class="text-lg font-semibold text-slate-900">Firmaopplysninger</h2>
     <form method="post" action="/settings" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
 
         <div>
-            <label for="company_name" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Company name</label>
+            <label for="company_name" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Firmanavn</label>
             <input id="company_name" type="text" name="company_name" value="{{ form_data.company_name }}" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             {% if errors.company_name %}<p class="mt-1 text-xs text-rose-700">{{ errors.company_name }}</p>{% endif %}
         </div>
 
         <div>
-            <label for="org_number" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Org no</label>
+            <label for="org_number" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Organisasjonsnummer</label>
             <input id="org_number" type="text" name="org_number" value="{{ form_data.org_number }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             {% if errors.org_number %}<p class="mt-1 text-xs text-rose-700">{{ errors.org_number }}</p>{% endif %}
         </div>
 
         <div>
-            <label for="default_currency" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Default currency</label>
+            <label for="default_currency" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Standard valuta</label>
             <select id="default_currency" name="default_currency" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
                 {% for currency in currencies %}
                 <option value="{{ currency }}" {% if form_data.default_currency == currency %}selected{% endif %}>{{ currency }}</option>
@@ -39,46 +40,46 @@
         </div>
 
         <div>
-            <label for="default_vat_rate" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Default VAT rate %</label>
+            <label for="default_vat_rate" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Standard inngående MVA % {{ ui_help.icon(learn_tooltips.input_vat) }}</label>
             <input id="default_vat_rate" type="number" step="0.1" name="default_vat_rate" value="{{ form_data.default_vat_rate }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             {% if errors.default_vat_rate %}<p class="mt-1 text-xs text-rose-700">{{ errors.default_vat_rate }}</p>{% endif %}
         </div>
 
         <div>
-            <label for="default_output_vat_rate" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Default output VAT rate %</label>
+            <label for="default_output_vat_rate" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Standard utgående MVA % {{ ui_help.icon(learn_tooltips.output_vat) }}</label>
             <input id="default_output_vat_rate" type="number" step="0.1" name="default_output_vat_rate" value="{{ form_data.default_output_vat_rate }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             {% if errors.default_output_vat_rate %}<p class="mt-1 text-xs text-rose-700">{{ errors.default_output_vat_rate }}</p>{% endif %}
         </div>
 
         <div>
-            <label for="primary_income_model" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Primary income model</label>
+            <label for="primary_income_model" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Hovedinntektsmodell</label>
             <input id="primary_income_model" type="text" name="primary_income_model" value="{{ form_data.primary_income_model }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             {% if errors.primary_income_model %}<p class="mt-1 text-xs text-rose-700">{{ errors.primary_income_model }}</p>{% endif %}
         </div>
 
         <div>
-            <label for="vat_registered_from" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">VAT registered from</label>
+            <label for="vat_registered_from" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">MVA-registrert fra</label>
             <input id="vat_registered_from" type="date" name="vat_registered_from" value="{{ form_data.vat_registered_from or '' }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             {% if errors.vat_registered_from %}<p class="mt-1 text-xs text-rose-700">{{ errors.vat_registered_from }}</p>{% endif %}
         </div>
 
         <div class="md:col-span-2 xl:col-span-3 flex justify-end">
-            <button type="submit" class="{{ ui_button.classes('primary') }}" data-loading-text="Lagrer">Save settings</button>
+            <button type="submit" class="{{ ui_button.classes('primary') }}" data-loading-text="Lagrer">Lagre innstillinger</button>
         </div>
     </form>
 </section>
 
 <section class="{{ ui_card.classes() }} space-y-4">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <h2 class="text-lg font-semibold text-slate-900">Fiscal term lock</h2>
+        <h2 class="text-lg font-semibold text-slate-900">Terminlås {{ ui_help.icon(learn_tooltips.lock_term) }}</h2>
         <form method="get" action="/settings" class="flex items-center gap-2">
-            <label for="lock-year" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Year</label>
+            <label for="lock-year" class="text-xs font-semibold uppercase tracking-wide text-slate-500">År</label>
             <select id="lock-year" name="year" class="rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
                 {% for year in years %}
                 <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
                 {% endfor %}
             </select>
-            <button type="submit" class="{{ ui_button.classes('secondary') }}" data-loading-text="Bytter ar">Switch year</button>
+            <button type="submit" class="{{ ui_button.classes('secondary') }}" data-loading-text="Bytter år">Bytt år</button>
         </form>
     </div>
 
@@ -86,11 +87,11 @@
         <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
-                    <th class="px-3 py-2">Term</th>
-                    <th class="px-3 py-2">Period</th>
+                    <th class="px-3 py-2">Termin</th>
+                    <th class="px-3 py-2">Periode</th>
                     <th class="px-3 py-2">Status</th>
-                    <th class="px-3 py-2">Locked at</th>
-                    <th class="px-3 py-2">Action</th>
+                    <th class="px-3 py-2">Låst tidspunkt</th>
+                    <th class="px-3 py-2">Handling</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -108,19 +109,19 @@
                     <td class="whitespace-nowrap px-3 py-2 text-slate-700">{{ term.start_date }} - {{ term.end_date }}</td>
                     <td class="whitespace-nowrap px-3 py-2">
                         {% if term.is_locked %}
-                        <span class="{{ ui_badge.classes('danger') }}">LOCKED</span>
+                        <span class="{{ ui_badge.classes('danger') }}">LÅST</span>
                         {% else %}
-                        <span class="{{ ui_badge.classes('success') }}">UNLOCKED</span>
+                        <span class="{{ ui_badge.classes('success') }}">ÅPEN</span>
                         {% endif %}
                     </td>
                     <td class="whitespace-nowrap px-3 py-2 text-slate-700">{{ term.locked_at or '-' }}</td>
                     <td class="whitespace-nowrap px-3 py-2">
                         {% if not term.is_locked %}
-                        <form method="post" action="/settings/lock-term" data-confirm="Lock term {{ term.period_no }} for year {{ term.year }}?">
+                        <form method="post" action="/settings/lock-term" data-confirm="Lås termin {{ term.period_no }} for år {{ term.year }}?">
                             <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
                             <input type="hidden" name="year" value="{{ term.year }}">
                             <input type="hidden" name="term" value="{{ term.period_no }}">
-                            <button type="submit" class="{{ ui_button.classes('destructive') }}" data-loading-text="Laser termin">Lock term</button>
+                            <button type="submit" class="{{ ui_button.classes('destructive') }}" data-loading-text="Låser termin">Lås termin</button>
                         </form>
                         {% else %}
                         <span class="text-slate-400">-</span>
@@ -134,11 +135,17 @@
 </section>
 
 <section class="{{ ui_card.classes() }} space-y-3">
-    <h2 class="text-lg font-semibold text-slate-900">Legacy migration</h2>
-    <p class="text-sm text-slate-600">Run once to migrate historical legacy income/expense entries into vouchers.</p>
-    <form method="post" action="/settings/run-legacy-migration" data-confirm="Run legacy migration now?">
+    <h2 class="text-lg font-semibold text-slate-900">Legacy-migrering (eksisterende data i samme DB)</h2>
+    <p class="text-sm text-slate-600">Kjør én gang hvis du allerede har `incomes/expenses` i aktiv database og vil migrere til bilag.</p>
+    <form method="post" action="/settings/run-legacy-migration" data-confirm="Kjør legacy-migrering nå?">
         <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
-        <button type="submit" class="{{ ui_button.classes('secondary') }}" data-loading-text="Kjorer migrering">Run legacy migration</button>
+        <button type="submit" class="{{ ui_button.classes('secondary') }}" data-loading-text="Kjører migrering">Kjør legacy-migrering</button>
     </form>
+</section>
+
+<section class="{{ ui_card.classes() }} space-y-3">
+    <h2 class="text-lg font-semibold text-slate-900">Importer gammel database</h2>
+    <p class="text-sm text-slate-600">Bruk denne hvis du har en separat eldre SQLite-fil som skal hentes inn trygt.</p>
+    <a href="/settings/import-legacy" class="{{ ui_button.classes('primary') }}">Åpne import for legacy-data</a>
 </section>
 {% endblock %}

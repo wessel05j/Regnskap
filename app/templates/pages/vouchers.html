@@ -3,33 +3,33 @@
 {% import "components/button.html" as ui_button %}
 {% import "components/badge.html" as ui_badge %}
 
-{% block page_title %}Vouchers | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+{% block page_title %}Bilag | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
 
 {% block page_content %}
 <section class="{{ ui_card.classes() }}">
     <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-            <h1 class="text-2xl font-semibold text-slate-900">Vouchers</h1>
-            <p class="mt-1 text-sm text-slate-600">Search, filter and inspect posted vouchers.</p>
+            <h1 class="text-2xl font-semibold text-slate-900">Bilag</h1>
+            <p class="mt-1 text-sm text-slate-600">Søk, filtrer og åpne bokførte bilag.</p>
         </div>
-        <a href="/vouchers/new" class="{{ ui_button.classes('primary') }}">Ny voucher</a>
+        <a href="/vouchers/new" class="{{ ui_button.classes('primary') }}">Nytt bilag</a>
     </div>
 
     <form class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4" method="get" action="/vouchers">
         <div>
-            <label for="filter-start-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Date from</label>
+            <label for="filter-start-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Fra dato</label>
             <input id="filter-start-date" type="date" name="start_date" value="{{ filters.start_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div>
-            <label for="filter-end-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Date to</label>
+            <label for="filter-end-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Til dato</label>
             <input id="filter-end-date" type="date" name="end_date" value="{{ filters.end_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div>
-            <label for="filter-voucher-type" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Voucher type</label>
+            <label for="filter-voucher-type" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Bilagstype</label>
             <input id="filter-voucher-type" type="text" name="voucher_type" value="{{ filters.voucher_type }}" placeholder="manual / reversal / correction" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div class="flex items-end">
-            <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Filtrerer">Apply server filters</button>
+            <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Filtrerer">Bruk serverfilter</button>
         </div>
     </form>
 </section>
@@ -37,44 +37,44 @@
 <section class="{{ ui_card.classes() }} space-y-4">
     <div class="grid gap-4 lg:grid-cols-5">
         <div class="lg:col-span-2">
-            <label for="client-search" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Search</label>
-            <input id="client-search" type="search" placeholder="Voucher ref, counterparty, status" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            <label for="client-search" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Søk</label>
+            <input id="client-search" type="search" placeholder="Bilagsnr, motpart, status" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div>
-            <label for="client-account" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Account</label>
-            <input id="client-account" type="text" placeholder="e.g. 3000" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            <label for="client-account" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Konto</label>
+            <input id="client-account" type="text" placeholder="f.eks. 3000" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div>
-            <label for="client-vat" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">VAT code</label>
-            <input id="client-vat" type="text" placeholder="e.g. 3, 81, 11" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            <label for="client-vat" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">mvaKode</label>
+            <input id="client-vat" type="text" placeholder="f.eks. 3, 81, 11" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div>
-            <label for="client-lock" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Lock state</label>
+            <label for="client-lock" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Låsestatus</label>
             <select id="client-lock" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                <option value="all">All</option>
-                <option value="locked">Locked</option>
-                <option value="unlocked">Unlocked</option>
+                <option value="all">Alle</option>
+                <option value="locked">Låst</option>
+                <option value="unlocked">Åpen</option>
             </select>
         </div>
     </div>
 
     <div class="flex items-center justify-between gap-3">
-        <p class="text-sm text-slate-600"><span id="voucher-visible-count" class="font-semibold text-slate-900">0</span> vouchers visible</p>
-        <p id="voucher-filter-status" class="text-xs text-slate-500">Client filters include account, VAT code, and lock state.</p>
+        <p class="text-sm text-slate-600"><span id="voucher-visible-count" class="font-semibold text-slate-900">0</span> bilag vises</p>
+        <p id="voucher-filter-status" class="text-xs text-slate-500">Klientfilter bruker konto, mvaKode og låsestatus.</p>
     </div>
 
     <div class="overflow-x-auto rounded-lg border border-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
-                    <th class="px-3 py-2">Date</th>
-                    <th class="px-3 py-2">Voucher</th>
+                    <th class="px-3 py-2">Dato</th>
+                    <th class="px-3 py-2">Bilag</th>
                     <th class="px-3 py-2">Type</th>
-                    <th class="px-3 py-2">Counterparty</th>
+                    <th class="px-3 py-2">Motpart</th>
                     <th class="px-3 py-2 text-right">Total NOK</th>
                     <th class="px-3 py-2">Status</th>
-                    <th class="px-3 py-2">Attachment</th>
-                    <th class="px-3 py-2 text-right">Action</th>
+                    <th class="px-3 py-2">Vedlegg</th>
+                    <th class="px-3 py-2 text-right">Handling</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -100,25 +100,25 @@
                             <span class="{{ ui_badge.classes('success' if row.status|lower == 'posted' else 'neutral') }}">{{ row.status|upper }}</span>
                             {% endif %}
                             {% if row.voucher_type|lower == 'reversal' %}
-                            <span class="{{ ui_badge.classes('danger') }}">REVERSAL</span>
+                            <span class="{{ ui_badge.classes('danger') }}">REVERSERING</span>
                             {% endif %}
-                            <span data-lock-chip class="hidden {{ ui_badge.classes('warning') }}">LOCKED</span>
+                            <span data-lock-chip class="hidden {{ ui_badge.classes('warning') }}">LÅST</span>
                         </div>
                     </td>
                     <td class="whitespace-nowrap px-3 py-2 text-slate-700">
                         {% if row.bilag_id %}
-                        <a href="/bilag/{{ row.bilag_id }}" class="text-indigo-600 hover:text-indigo-500 hover:underline">Download</a>
+                        <a href="/bilag/{{ row.bilag_id }}" class="text-indigo-600 hover:text-indigo-500 hover:underline">Last ned</a>
                         {% else %}
                         -
                         {% endif %}
                     </td>
                     <td class="whitespace-nowrap px-3 py-2 text-right">
-                        <a href="/vouchers/{{ row.id }}" class="{{ ui_button.classes('secondary') }}">Open</a>
+                        <a href="/vouchers/{{ row.id }}" class="{{ ui_button.classes('secondary') }}">Åpne</a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" class="px-3 py-10 text-center text-slate-500">No vouchers found for selected filters.</td>
+                    <td colspan="8" class="px-3 py-10 text-center text-slate-500">Ingen bilag funnet for valgt filter.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -275,13 +275,13 @@
                 baseMatches.forEach((row) => row.classList.remove('hidden'));
                 updateVisibleCount();
                 if (statusLabel) {
-                    statusLabel.textContent = 'Client filters include account, VAT code, and lock state.';
+                    statusLabel.textContent = 'Klientfilter bruker konto, mvaKode og låsestatus.';
                 }
                 return;
             }
 
             if (statusLabel) {
-                statusLabel.textContent = 'Loading voucher line metadata for account/VAT filters...';
+                statusLabel.textContent = 'Laster linjedata for konto- og mvaKode-filter...';
             }
 
             const checks = await Promise.all(baseMatches.map(async (row) => {
@@ -308,7 +308,7 @@
             });
             updateVisibleCount();
             if (statusLabel) {
-                statusLabel.textContent = 'Client filters include account, VAT code, and lock state.';
+                statusLabel.textContent = 'Klientfilter bruker konto, mvaKode og låsestatus.';
             }
         };
 

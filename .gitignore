@@ -12,14 +12,17 @@ build/
 dist/
 *.egg-info/
 .coverage
+.coverage.*
 coverage.xml
 htmlcov/
+pip-wheel-metadata/
 
 # Virtual environment and local env files
 .venv/
 .env
 .env.*
 !.env.example
+.python-version
 
 # Local data (never commit accounting data)
 data/*
@@ -30,16 +33,34 @@ data/*
 !data/reports/.gitkeep
 !data/backups/
 !data/backups/.gitkeep
-data/attachments/*
+data/attachments/**
 !data/attachments/.gitkeep
-data/reports/*
+data/reports/**
 !data/reports/.gitkeep
-data/backups/*
+data/backups/**
 !data/backups/.gitkeep
+data/backups/**/*.zip
+data/backups/**/*.db
+data/backups/**/*.sqlite
+data/backups/**/*.sqlite3
+data/app.log
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
 *.log
+*.pid
+*.tmp
+*.temp
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.der
 
 # IDE / OS
 .vscode/

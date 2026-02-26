@@ -13,8 +13,8 @@ def main() -> None:
             "currency": "NOK",
             "amount_nok": None,
             "exchange_rate": None,
-            "source": "YouTube/Google AdSense",
-            "note": "Januar utbetaling",
+            "source": "Eksempelplattform",
+            "note": "Eksempelutbetaling januar",
         }
     )
     income_2 = schemas.IncomeInput.model_validate(
@@ -24,14 +24,14 @@ def main() -> None:
             "currency": "USD",
             "amount_nok": 14300,
             "exchange_rate": None,
-            "source": "Other",
-            "note": "Samarbeid video",
+            "source": "Eksempelkunde",
+            "note": "Eksempeloppdrag",
         }
     )
     expense_1 = schemas.ExpenseInput.model_validate(
         {
             "date": "2026-01-12",
-            "vendor": "Elkjop",
+            "vendor": "Leverandor Demo",
             "category": "Utstyr",
             "amount_original": 3999,
             "currency": "NOK",
@@ -39,13 +39,13 @@ def main() -> None:
             "exchange_rate": None,
             "vat_amount": 799.8,
             "payment_method": "kort",
-            "note": "Mikrofon",
+            "note": "Eksempelutstyr",
         }
     )
     expense_2 = schemas.ExpenseInput.model_validate(
         {
             "date": "2026-02-05",
-            "vendor": "Adobe",
+            "vendor": "Programvare Demo",
             "category": "Programvare/abonnement",
             "amount_original": 59.99,
             "currency": "USD",
@@ -53,7 +53,7 @@ def main() -> None:
             "exchange_rate": None,
             "vat_amount": 0.0,
             "payment_method": "paypal",
-            "note": "Maanedsabonnement",
+            "note": "Eksempelabonnement",
         }
     )
 
@@ -67,4 +67,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -1,0 +1,151 @@
+{% extends "layouts/base.html" %}
+{% import "components/card.html" as ui_card %}
+{% import "components/button.html" as ui_button %}
+{% import "components/badge.html" as ui_badge %}
+
+{% block page_title %}Importer legacy-data | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+
+{% block page_content %}
+<section class="{{ ui_card.classes() }}">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-slate-900">Importer legacy-data</h1>
+            <p class="mt-1 text-sm text-slate-600">Trygg import fra gammel SQLite-fil med forhåndsvisning og eksplisitt bekreftelse.</p>
+        </div>
+        <a href="/settings" class="{{ ui_button.classes('secondary') }}">Tilbake til innstillinger</a>
+    </div>
+</section>
+
+{% if success_message %}
+<section class="{{ ui_card.classes() }}">
+    <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        {{ success_message }}
+    </div>
+    {% if import_result %}
+    <div class="mt-4 grid gap-3 md:grid-cols-2">
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+            <p><span class="font-semibold">Kilde:</span> {{ import_result.source_path }}</p>
+            <p class="mt-1"><span class="font-semibold">Backup:</span> {{ import_result.backup_path }}</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+            <p><span class="font-semibold">Migrerte inntekter:</span> {{ import_result.migration.incomes.migrated }}</p>
+            <p><span class="font-semibold">Migrerte utgifter:</span> {{ import_result.migration.expenses.migrated }}</p>
+        </div>
+    </div>
+    {% endif %}
+</section>
+{% endif %}
+
+{% if errors %}
+<section class="{{ ui_card.classes() }}">
+    <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        {% for item in errors %}
+        <p>{{ item }}</p>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<section class="{{ ui_card.classes() }} space-y-4">
+    <h2 class="text-lg font-semibold text-slate-900">1) Velg legacy-fil</h2>
+    <form method="post" action="/settings/import-legacy/preview" enctype="multipart/form-data" class="grid gap-4 md:grid-cols-2">
+        <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
+        <input type="hidden" name="import_settings" value="{{ form_data.import_settings }}">
+
+        <div>
+            <label for="db_path" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Serversti til DB</label>
+            <input id="db_path" type="text" name="db_path" value="{{ form_data.db_path }}" placeholder="D:\Data\gammel_app.db" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+        </div>
+        <div>
+            <label for="upload_db" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Eller last opp DB-fil</label>
+            <input id="upload_db" type="file" name="upload_db" accept=".db,.sqlite,.sqlite3" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+        </div>
+        <div class="md:col-span-2 flex items-center justify-end">
+            <button type="submit" class="{{ ui_button.classes('primary') }}" data-loading-text="Leser fil">Vis forhåndsvisning</button>
+        </div>
+    </form>
+</section>
+
+<section class="{{ ui_card.classes() }} space-y-4">
+    <h2 class="text-lg font-semibold text-slate-900">2) Systemfunn</h2>
+    {% if candidate_paths %}
+    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+        <p class="font-semibold text-slate-900">Mulige legacy-/backupfiler funnet:</p>
+        <ul class="mt-2 list-disc space-y-1 pl-5">
+            {% for path in candidate_paths %}
+            <li>{{ path }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if no_candidates_found %}
+    <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <p class="font-semibold">Ingen separat legacy-fil ble funnet automatisk.</p>
+        <p class="mt-1">Vanlige steder er:</p>
+        <ul class="mt-2 list-disc space-y-1 pl-5">
+            <li>Aktiv database: {{ current_db_path }}</li>
+            <li>Backup-mappe: {{ backups_dir_path }}</li>
+            <li>Tidligere eksport/backup `.zip` i prosjektets `data/backups`</li>
+        </ul>
+    </div>
+    {% endif %}
+</section>
+
+{% if preview %}
+<section class="{{ ui_card.classes() }} space-y-4">
+    <div class="flex flex-wrap items-center gap-2">
+        <h2 class="text-lg font-semibold text-slate-900">3) Forhåndsvisning</h2>
+        {% if preview.valid %}
+        <span class="{{ ui_badge.classes('success') }}">Schema OK</span>
+        {% else %}
+        <span class="{{ ui_badge.classes('danger') }}">Schema-feil</span>
+        {% endif %}
+    </div>
+
+    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+        <p><span class="font-semibold">Fil:</span> {{ preview.path }}</p>
+        {% if preview.is_current_db %}
+        <p class="mt-1 text-amber-800">Denne filen er aktiv database nå. Import er normalt kun for separat gammel DB.</p>
+        {% endif %}
+    </div>
+
+    <div class="grid gap-3 md:grid-cols-3">
+        <article class="rounded-lg border border-slate-200 bg-white p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Inntekter (legacy)</p>
+            <p class="mt-2 text-xl font-semibold text-slate-900">{{ preview.incomes_rows }}</p>
+            <p class="text-xs text-slate-600">Nye: {{ preview.incomes_new }} | Allerede migrert: {{ preview.incomes_existing }}</p>
+        </article>
+        <article class="rounded-lg border border-slate-200 bg-white p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Utgifter (legacy)</p>
+            <p class="mt-2 text-xl font-semibold text-slate-900">{{ preview.expenses_rows }}</p>
+            <p class="text-xs text-slate-600">Nye: {{ preview.expenses_new }} | Allerede migrert: {{ preview.expenses_existing }}</p>
+        </article>
+        <article class="rounded-lg border border-slate-200 bg-white p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Innstillingsrader</p>
+            <p class="mt-2 text-xl font-semibold text-slate-900">{{ preview.settings_rows }}</p>
+            <p class="text-xs text-slate-600">Vanligvis 1 rad</p>
+        </article>
+    </div>
+
+    {% if preview.valid %}
+    <form method="post" action="/settings/import-legacy/confirm" class="space-y-4 rounded-lg border border-rose-200 bg-rose-50 p-4">
+        <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
+        <input type="hidden" name="source_path" value="{{ preview.path }}">
+
+        <label class="flex items-start gap-2 text-sm text-slate-700">
+            <input type="checkbox" name="import_settings" value="1" {% if form_data.import_settings == '1' %}checked{% endif %} class="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+            <span>Importer også firma-innstillinger fra legacy-DB (valgfritt).</span>
+        </label>
+
+        <label class="flex items-start gap-2 text-sm text-slate-700">
+            <input type="checkbox" name="confirm_import" value="1" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" required>
+            <span>Jeg bekrefter import. Systemet bruker staging-kopi og lager sikkerhetskopi før bytte.</span>
+        </label>
+
+        <button type="submit" class="{{ ui_button.classes('destructive') }}" data-loading-text="Importerer">Importer legacy-data</button>
+    </form>
+    {% endif %}
+</section>
+{% endif %}
+{% endblock %}

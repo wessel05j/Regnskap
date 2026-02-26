@@ -8,7 +8,7 @@
 {% block page_content %}
 <section class="{{ ui_card.classes('w-full max-w-md') }}">
     <h1 class="text-2xl font-semibold text-slate-900">Logg inn</h1>
-    <p class="mt-1 text-sm text-slate-600">Secure local access to your ENK bookkeeping system.</p>
+    <p class="mt-1 text-sm text-slate-600">Sikker lokal tilgang til ENK-regnskapet ditt.</p>
 
     <form class="mt-6 space-y-4" method="post" action="/login">
         <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
@@ -30,6 +30,6 @@
         <button type="submit" class="{{ ui_button.classes('primary') }} w-full" data-loading-text="Logger inn">Logg inn</button>
     </form>
 
-    <p class="mt-4 text-xs text-slate-500">Ny installasjon? Opprett admin via <a href="/bootstrap-admin" class="font-medium text-indigo-600 hover:text-indigo-500 hover:underline">bootstrap</a>.</p>
+    <p class="mt-4 text-xs text-slate-500">Ny installasjon? Opprett admin via <a href="/bootstrap-admin" class="font-medium text-indigo-600 hover:text-indigo-500 hover:underline">førstegangsoppsett</a>.</p>
 </section>
 {% endblock %}

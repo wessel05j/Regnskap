@@ -3,18 +3,18 @@
 {% import "components/button.html" as ui_button %}
 {% import "components/badge.html" as ui_badge %}
 
-{% block page_title %}Dashboard | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+{% block page_title %}Oversikt | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
 
 {% block page_content %}
 <section class="{{ ui_card.classes() }}">
     <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-            <h1 class="text-2xl font-semibold text-slate-900">Dashboard</h1>
-            <p class="mt-1 text-sm text-slate-600">Financial overview for selected fiscal year.</p>
+            <h1 class="text-2xl font-semibold text-slate-900">Oversikt</h1>
+            <p class="mt-1 text-sm text-slate-600">Nøkkeltall for valgt regnskapsår.</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
             <form class="flex items-center gap-2" method="get" action="/">
-                <label for="dashboard-year" class="text-sm font-medium text-slate-600">Fiscal year</label>
+                <label for="dashboard-year" class="text-sm font-medium text-slate-600">Regnskapsår</label>
                 <select id="dashboard-year" name="year" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
                     {% for year in years %}
                     <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
@@ -28,29 +28,29 @@
 </section>
 
 <div id="dashboard-lock-banner" class="hidden rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-    Current fiscal term is locked. Only reversal/correction flows are allowed.
+    Aktiv termin er låst. Kun reversering/korrigering er tillatt.
 </div>
 
 <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
     <article class="{{ ui_card.classes('space-y-2') }}">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Revenue (year)</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Inntekter (år)</p>
         <p class="text-2xl font-semibold text-slate-900">{{ "%.2f"|format(summary.income_total_nok) }} NOK</p>
-        <p class="text-xs text-slate-500">Aggregated from INCOME accounts.</p>
+        <p class="text-xs text-slate-500">Summert fra inntektskontoer.</p>
     </article>
     <article class="{{ ui_card.classes('space-y-2') }}">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Expenses (year)</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Kostnader (år)</p>
         <p class="text-2xl font-semibold text-slate-900">{{ "%.2f"|format(summary.expense_total_nok) }} NOK</p>
-        <p class="text-xs text-slate-500">Aggregated from EXPENSE accounts.</p>
+        <p class="text-xs text-slate-500">Summert fra kostnadskontoer.</p>
     </article>
     <article class="{{ ui_card.classes('space-y-2') }}">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Net result</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Resultat</p>
         <p class="text-2xl font-semibold {% if summary.result_nok >= 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ "%.2f"|format(summary.result_nok) }} NOK</p>
-        <p class="text-xs text-slate-500">Revenue minus expenses.</p>
+        <p class="text-xs text-slate-500">Inntekter minus kostnader.</p>
     </article>
     <article class="{{ ui_card.classes('space-y-2') }}">
-        <p id="vat-kpi-label" class="text-xs font-semibold uppercase tracking-wide text-slate-500">VAT Payable/Receivable</p>
-        <p id="vat-kpi-value" class="text-2xl font-semibold text-slate-900">Loading...</p>
-        <p id="vat-kpi-term" class="text-xs text-slate-500">Based on current term.</p>
+        <p id="vat-kpi-label" class="text-xs font-semibold uppercase tracking-wide text-slate-500">MVA skyldig/til gode</p>
+        <p id="vat-kpi-value" class="text-2xl font-semibold text-slate-900">Laster...</p>
+        <p id="vat-kpi-term" class="text-xs text-slate-500">Basert på aktiv termin.</p>
     </article>
 </section>
 
@@ -58,39 +58,39 @@
     <article class="{{ ui_card.classes('xl:col-span-2') }}">
         <div class="mb-4 flex items-center justify-between">
             <div>
-                <h2 class="text-lg font-semibold text-slate-900">Revenue vs expenses monthly</h2>
-                <p class="text-sm text-slate-500">Derived from journal specification for fiscal year {{ selected_year }}.</p>
+                <h2 class="text-lg font-semibold text-slate-900">Inntekter mot kostnader per måned</h2>
+                <p class="text-sm text-slate-500">Basert på journalen for regnskapsår {{ selected_year }}.</p>
             </div>
         </div>
         <div class="h-80">
-            <canvas id="revenue-expense-chart" aria-label="Monthly revenue and expenses chart" role="img"></canvas>
+            <canvas id="revenue-expense-chart" aria-label="Graf for månedlige inntekter og kostnader" role="img"></canvas>
         </div>
     </article>
 
     <article class="{{ ui_card.classes() }}">
         <div class="mb-4">
-            <h2 class="text-lg font-semibold text-slate-900">VAT trend per term</h2>
-            <p class="text-sm text-slate-500">Net VAT per term in selected fiscal year.</p>
+            <h2 class="text-lg font-semibold text-slate-900">MVA-trend per termin</h2>
+            <p class="text-sm text-slate-500">Netto MVA per termin i valgt regnskapsår.</p>
         </div>
         <div class="h-80">
-            <canvas id="vat-trend-chart" aria-label="VAT trend chart" role="img"></canvas>
+            <canvas id="vat-trend-chart" aria-label="Graf for MVA-trend" role="img"></canvas>
         </div>
     </article>
 </section>
 
 <section class="{{ ui_card.classes() }}">
     <div class="mb-4 flex items-center justify-between gap-3">
-        <h2 class="text-lg font-semibold text-slate-900">Recent activity</h2>
-        <a href="/vouchers" class="{{ ui_button.classes('secondary') }}">All vouchers</a>
+        <h2 class="text-lg font-semibold text-slate-900">Siste aktivitet</h2>
+        <a href="/vouchers" class="{{ ui_button.classes('secondary') }}">Alle bilag</a>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
-                    <th class="px-3 py-2">Date</th>
+                    <th class="px-3 py-2">Dato</th>
                     <th class="px-3 py-2">Type</th>
-                    <th class="px-3 py-2">Counterparty</th>
-                    <th class="px-3 py-2">Amount</th>
+                    <th class="px-3 py-2">Motpart</th>
+                    <th class="px-3 py-2">Beløp</th>
                     <th class="px-3 py-2">Status</th>
                 </tr>
             </thead>
@@ -109,15 +109,15 @@
                     </td>
                     <td class="whitespace-nowrap px-3 py-2">
                         {% if tx.type|lower == 'reversal' %}
-                        <span class="{{ ui_badge.classes('danger') }}">REVERSAL</span>
+                            <span class="{{ ui_badge.classes('danger') }}">REVERSERING</span>
                         {% else %}
-                        <span class="{{ ui_badge.classes('success') }}">POSTED</span>
+                            <span class="{{ ui_badge.classes('success') }}">BOKFØRT</span>
                         {% endif %}
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="px-3 py-10 text-center text-slate-500">No vouchers posted yet.</td>
+                    <td colspan="5" class="px-3 py-10 text-center text-slate-500">Ingen bilag bokført ennå.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -180,7 +180,7 @@
             });
         };
 
-        const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
 
         const createRevenueExpenseChart = async () => {
             const canvas = document.getElementById('revenue-expense-chart');
@@ -234,7 +234,7 @@
                     labels: monthLabels,
                     datasets: [
                         {
-                            label: 'Revenue',
+                            label: 'Inntekter',
                             data: incomeData,
                             borderColor: '#16a34a',
                             backgroundColor: 'rgba(22, 163, 74, 0.12)',
@@ -242,7 +242,7 @@
                             fill: true,
                         },
                         {
-                            label: 'Expenses',
+                            label: 'Kostnader',
                             data: expenseData,
                             borderColor: '#4f46e5',
                             backgroundColor: 'rgba(79, 70, 229, 0.12)',
@@ -310,7 +310,7 @@
                     labels: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'],
                     datasets: [
                         {
-                            label: 'Net VAT',
+                            label: 'Netto MVA',
                             data: termValues,
                             backgroundColor: termValues.map((value) => (value >= 0 ? 'rgba(79, 70, 229, 0.75)' : 'rgba(244, 63, 94, 0.75)')),
                             borderRadius: 8,
@@ -344,10 +344,10 @@
                 kpiValue.classList.add(currentValue >= 0 ? 'text-rose-700' : 'text-emerald-700');
             }
             if (kpiLabel) {
-                kpiLabel.textContent = currentValue >= 0 ? 'VAT Payable' : 'VAT Receivable';
+                kpiLabel.textContent = currentValue >= 0 ? 'MVA å betale' : 'MVA til gode';
             }
             if (kpiTerm) {
-                kpiTerm.textContent = `Based on term ${currentTerm} in fiscal year ${selectedYear}.`;
+                kpiTerm.textContent = `Basert på termin ${currentTerm} i regnskapsår ${selectedYear}.`;
             }
         };
 

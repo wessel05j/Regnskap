@@ -1,0 +1,10 @@
+{% macro icon(text) -%}
+<span
+    class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-slate-300 bg-white text-[10px] font-semibold text-slate-600 align-middle"
+    tabindex="0"
+    title="{{ text }}"
+    aria-label="{{ text }}"
+>
+    ?
+</span>
+{%- endmacro %}

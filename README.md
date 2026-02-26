@@ -1,172 +1,221 @@
-# Mini-regnskap for ENK (Wessel Media)
+# Mini Regnskap ENK
 
-Lokal FastAPI-app for ENK med voucher-basert bokforing (double-entry), MVA-spesifikasjon per `mvaKode`, periodelaas, audit-logg, PDF/CSV/JSON-rapporter, enkel admin-login og backup CLI.
+A local-first bookkeeping system for Norwegian sole proprietorships (ENK), built with FastAPI, Jinja, and SQLite.
 
-Dette er fortsatt et internt system og **ikke** en direkte innsendingstjeneste mot Altinn.
+Mini Regnskap ENK is designed for operators who want full control of accounting data on their own machine, without cloud lock-in.
 
-## Teknologi
+## Status and Scope
 
-- Python 3.11+
-- FastAPI + Jinja2
-- SQLite (`data/app.db`)
-- ReportLab (PDF)
-- Pytest
+- Current maturity: **not production ready**
+- Intended use: local evaluation, development, and controlled pilot usage
+- No guarantee of regulatory completeness for all accounting scenarios
+- No automatic Altinn submission or external filing integration
 
-## Ny datamodell (kjerne)
+This repository is public for transparency and collaboration, but should not yet be treated as a finished production accounting product.
 
-I tillegg til legacy-tabeller (`incomes`, `expenses`) er disse lagt til:
+## Production Warning
 
-- `accounts`: kontoplan
-- `fiscal_periods`: perioder/terminer med laasestatus
-- `vouchers`: bilagshode/voucher med sekvensnummer
-- `voucher_lines`: voucherlinjer (debet/kredit + MVA-felter)
-- `bilag_files`: vedleggsregister med hash (`sha256`)
-- `audit_log`: kontrollspor (hvem/hva/nar)
-- `users`, `user_sessions`: lokal autentisering/sesjoner
-- `voucher_sequences`: sekvenskontroll for voucher_no
-- `schema_migrations`: versjonert migreringshistorikk
+Do not deploy this system as a business-critical production accounting platform yet.
 
-Legacy-tabeller beholdes og vises som read-only i UI.
+- Security hardening is still in progress
+- Operational controls (monitoring, incident response, disaster recovery) are not complete
+- The current release process is aimed at development/testing, not regulated production operations
 
-## Oppstart pa Windows
+## License (Source Available)
+
+This project is **source available** under the **Business Source License 1.1 (BUSL-1.1)**.
+
+- You can inspect the code and run it locally under the license terms
+- Commercial redistribution and commercial service usage are restricted without separate permission
+- Change Date for this repository: **2029-02-26**
+- Full terms: [LICENSE](LICENSE)
+
+References:
+
+- BUSL text: <https://mariadb.com/bsl11/>
+- OSI (Open Source Definition): <https://opensource.org/osd>
+
+## Development Model
+
+Active development happens in the **`development`** branch.
+
+Recommended branch flow:
+
+- `development`: day-to-day feature work, refactoring, and integration
+- `main`: curated, stable snapshots for broader testing and public visibility
+
+## Why Local-First
+
+- Accounting records remain on your own device
+- No mandatory cloud dependency for normal operation
+- Offline-friendly workflow for daily bookkeeping
+- Easier data ownership, backup control, and audit traceability
+
+## No Cloud Storage
+
+Mini Regnskap ENK does **not** require cloud storage.
+
+By default, data is stored in local project folders:
+
+- Database: `data/app.db`
+- Attachments: `data/attachments/`
+- Generated reports: `data/reports/`
+- Backup archives: `data/backups/`
+
+## Core Capabilities
+
+- Voucher registration with double-entry accounting
+- VAT term aggregation and VAT exports (PDF/JSON/CSV)
+- Yearly report, journal report, and account specification
+- Period locking and correction flow (reversal + corrected voucher)
+- Local authentication (password hashing + session tokens)
+- Legacy import/migration from older SQLite format
+- Backup and backup verification CLI
+
+## Architecture Overview
+
+### Runtime Stack
+
+- Backend/API: FastAPI
+- UI rendering: Jinja templates
+- Storage: SQLite
+- Report generation: ReportLab
+- Test suite: Pytest
+
+### Project Structure
+
+- `app/main.py`: route layer, request handling, UI/API flow
+- `app/db.py`: database setup, migrations, data directory management
+- `app/ledger.py`: accounting engine and voucher logic
+- `app/vat_engine.py`: VAT calculations and VAT datasets
+- `app/pdf_reports.py`: PDF report generation
+- `app/auth.py`: users, password hashing, session handling
+- `app/legacy_import.py` and `app/migrate_legacy.py`: migration/import workflows
+- `app/backup_cli.py`: backup and verification commands
+- `tests/`: automated coverage for core accounting and routes
+
+### Data Flow (High Level)
+
+1. User submits voucher/report action in UI.
+2. FastAPI validates and routes request.
+3. Ledger/VAT modules process accounting logic.
+4. SQLite persists records and audit trail.
+5. Reports and exports are generated locally in `data/reports/`.
+
+## Quick Start
+
+### Option A (Windows helper script)
 
 ```powershell
 .\scripts\start.ps1
 ```
 
-eller:
+or:
 
 ```bat
 scripts\start.bat
 ```
 
-## Førstegangsoppsett
-
-1. Start appen.
-2. Gå til `http://127.0.0.1:8000/bootstrap-admin`.
-3. Opprett lokal adminbruker.
-4. Logg inn.
-
-## Voucher-basert posting
-
-1. Gå til `Vouchers -> Ny voucher`.
-2. Fyll ut metadata og linjer som JSON-array.
-3. Linjene må balansere (`sum(debet) == sum(kredit)`).
-4. For MVA-linjer bruk:
-   - `vat_mva_code`
-   - `vat_rate`
-   - `vat_base_nok`
-   - `vat_amount_nok`
-5. Systemet validerer beregnede `mvaKode`-linjer og whole-NOK regler.
-
-## Legacy-migrering (engangskjøring)
-
-Migrerer `incomes/expenses` til vouchers/linjer, oppretter bilag-hashposter og lenker.
-
-Via UI:
-- `Settings -> Legacy-migrering -> Kjør`
-
-Via CLI:
+### Option B (manual)
 
 ```powershell
-.\.venv\Scripts\python.exe -m app.migrate_legacy
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-## MVA term-datasett (Jan/Feb eksempel)
+Then open `http://127.0.0.1:8000/bootstrap-admin` to create the first admin account.
 
-### Via UI
+## Security and Local Data Control
 
-1. Gå til `Rapporter`.
-2. Velg `Ar` og `Termin` (f.eks. termin 1 = Jan-Feb).
-3. Last ned:
-   - PDF: `/reports/mva`
-   - JSON dataset: `/reports/mva/json`
-   - CSV: `/reports/mva/csv`
+Security fundamentals in this project:
 
-### Via curl
+- Local storage by default; no cloud transport required
+- Passwords are stored as hashes, never plaintext
+- Session-based authentication
+- Audit log table for traceability
+- Backup and backup verification tooling
+
+Operational recommendations:
+
+- Keep machine-level disk encryption enabled
+- Restrict local OS account access
+- Run regular encrypted backups
+- Test restore procedures in a separate environment
+- Never commit real accounting data or secrets to Git
+
+See also:
+
+- [SECURITY.md](SECURITY.md)
+- [SECURITY_AUDIT_REPORT.md](SECURITY_AUDIT_REPORT.md)
+
+### Pre-commit Guard
+
+This repository includes a lightweight pre-commit hook at `.githooks/pre-commit` to block commits that include:
+
+- `.db`/`.sqlite` artifacts
+- `.env` files
+- `data/` folder contents (except tracked `.gitkeep` placeholders)
+- high-confidence secret patterns in staged diff lines
+
+Install once per clone:
 
 ```powershell
-curl.exe -X POST -F "year=2026" -F "term=1" http://127.0.0.1:8000/reports/mva/json -o vat_term_dataset.json
+.\scripts\install-hooks.ps1
 ```
 
-JSON inneholder:
-- `mvaKode`
-- `grunnlag_nok` (hele NOK)
-- `sats`
-- `merverdiavgift_nok` (hele NOK)
-- `drilldown` med underliggende vouchers/linjer/bilag
-
-## Rapporter
-
-- Arsoversikt (PDF): `/reports/yearly`
-- MVA-spesifikasjon/termin (PDF/JSON/CSV): `/reports/mva`, `/reports/mva/json`, `/reports/mva/csv`
-- Bokforingsspesifikasjon (PDF/CSV): `/reports/journal/pdf`, `/reports/journal/csv`
-- Kontospesifikasjon (PDF/CSV): `/reports/accounts/pdf`, `/reports/accounts/csv`
-
-## Periodelaas og korreksjon
-
-- Lås termin i `Settings`.
-- Etter laas:
-  - vanlige posteringer i perioden stoppes
-  - oppdatering/sletting av vouchers/linjer i laast periode blokkeres
-  - oppdatering/sletting av bilag lenket til laast periode blokkeres
-  - korreksjon skjer via `Voucher -> Opprett korreksjon` (reversal + ny voucher)
-
-## Backup / restore-verifisering
-
-Lag backup:
+Or manually:
 
 ```powershell
-.\.venv\Scripts\python.exe -m app.backup_cli backup
+git config core.hooksPath .githooks
 ```
 
-Verifiser backup:
+On macOS/Linux, ensure execute permission:
+
+```bash
+chmod +x .githooks/pre-commit
+```
+
+Verification:
 
 ```powershell
-.\.venv\Scripts\python.exe -m app.backup_cli verify --archive data\backups\backup_YYYYMMDD_HHMMSS.zip
+git config --get core.hooksPath
 ```
 
-Backup inkluderer:
-- DB-fil (`app.db`)
-- `data/attachments`
-- `data/reports` (kan slås av med `--no-reports`)
+Expected output:
 
-## Tester
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
+```text
+.githooks
 ```
 
-Dekker bl.a.:
-- voucher-balansering
-- periodelaas
-- korreksjonsflyt (reversal + ny voucher)
-- MVA whole-NOK + floor-validering
-- drilldown-data for MVA-linjer
+## Roadmap
 
-## UI Overhaul - v2 Design System
+Planned priorities:
 
-Frontend er oppgradert til en server-rendered SaaS-layout med komponentbaserte Jinja-maler og Tailwind CSS (CDN):
+- Hardening and security review for production-readiness
+- Improved bookkeeping validation and guardrails
+- Better error handling and operator diagnostics
+- Expanded test coverage for edge cases in ledger/VAT flows
+- Improved import/export UX for accountants and auditors
+- Release packaging and upgrade/migration tooling
 
-- Ny global layout med fast sidebar, topbar, responsive mobilmeny og statusindikatorer
-- Gjenbrukbare komponenter under `app/templates/components/`:
-  - `card.html`
-  - `badge.html`
-  - `button.html`
-  - `modal.html`
-- Ny malstruktur under `app/templates/`:
-  - `layouts/base.html`
-  - `pages/dashboard.html`
-  - `pages/vouchers.html`
-  - `pages/voucher_detail.html`
-  - `pages/reports.html`
-  - `pages/vat.html`
-  - `pages/accounts.html`
-  - `pages/settings.html`
-- Forbedret UX i vouchers (dynamiske linjer, balanseindikator, VAT-preview, status-badges)
-- Rapportfaner (Journal, Account specification, VAT specification, Year overview) med eksportknapper og inline preview
-- Sikkerhets- og kvalitetsforbedringer i UI:
-  - skjult CSRF-felt i POST-skjema
-  - bekreftelsesmodal ved kritiske handlinger
-  - submit-loading state
-  - enkel session-timeout advarsel
+## Screenshots (Placeholders)
+
+- `[Placeholder] Dashboard`: `docs/screenshots/dashboard.png`
+- `[Placeholder] New Voucher Form`: `docs/screenshots/voucher-form.png`
+- `[Placeholder] VAT Report`: `docs/screenshots/vat-report.png`
+- `[Placeholder] Settings`: `docs/screenshots/settings.png`
+- `[Placeholder] Legacy Import`: `docs/screenshots/legacy-import.png`
+
+Use anonymized demo data only when generating screenshots.
+
+## Demo Data and Contribution
+
+- Demo data guide: [DEMO_DATA.md](DEMO_DATA.md)
+- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## Transparency Note
+
+This repository is published to share implementation details and enable responsible collaboration. It is source available, local-first, and security-conscious, but still under active development and not yet production ready.

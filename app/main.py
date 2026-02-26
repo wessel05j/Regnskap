@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
-from app import auth, crud, db, ledger, migrate_legacy, pdf_reports, schemas, vat_engine
+from app import auth, crud, db, learn, ledger, legacy_import, migrate_legacy, pdf_reports, schemas, vat_engine
 from app.utils import MAX_ATTACHMENT_SIZE, parse_float, sanitize_filename
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -26,6 +26,8 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 
 LOGGER = logging.getLogger("regnskap")
 PUBLIC_PATHS = {"/login", "/bootstrap-admin"}
+MAX_LEGACY_DB_UPLOAD_SIZE = 200 * 1024 * 1024
+LEGACY_UPLOADS_DIR = db.BACKUPS_DIR / "legacy_uploads"
 
 
 def setup_logging() -> None:
@@ -122,6 +124,7 @@ def base_context(request: Request, active_nav: str) -> dict:
         "active_nav": active_nav,
         "settings": crud.get_settings(),
         "disclaimer": "Internt system. Data er bokforingsgrunnlag, men ingen Altinn-innsending skjer automatisk.",
+        "learn_tooltips": learn.TOOLTIPS,
         "current_user": getattr(request.state, "user", None),
     }
 
@@ -170,6 +173,37 @@ def write_csv_file(path: Path, header: list[str], rows: list[list[str]]) -> Path
         writer.writerow(header)
         writer.writerows(rows)
     return path
+
+
+def resolve_reports_nav(tab: str | None) -> str:
+    if tab == "vat":
+        return "reports_vat"
+    if tab == "accounts":
+        return "reports_accounts"
+    return "reports"
+
+
+def normalize_reports_tab(tab: str | None) -> str:
+    allowed = {"year", "vat", "journal", "accounts"}
+    if tab and tab in allowed:
+        return tab
+    return "year"
+
+
+async def save_legacy_upload(upload: UploadFile | None) -> Path | None:
+    if upload is None or not upload.filename:
+        return None
+    original_name = sanitize_filename(upload.filename)
+    suffix = Path(original_name).suffix.lower()
+    if suffix not in {".db", ".sqlite", ".sqlite3"}:
+        raise HTTPException(status_code=400, detail="Ugyldig filtype for legacy-import. Tillatt: .db, .sqlite, .sqlite3")
+    payload = await upload.read()
+    if len(payload) > MAX_LEGACY_DB_UPLOAD_SIZE:
+        raise HTTPException(status_code=400, detail="Legacy-fil overstiger 200MB grense")
+    LEGACY_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    stored = LEGACY_UPLOADS_DIR / f"legacy_{uuid4().hex}{suffix}"
+    stored.write_bytes(payload)
+    return stored
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -282,6 +316,30 @@ def dashboard(request: Request, year: str | None = None) -> HTMLResponse:
         }
     )
     return templates.TemplateResponse("dashboard.html", context)
+
+
+@app.get("/learn", response_class=HTMLResponse)
+def learn_page(request: Request) -> HTMLResponse:
+    context = base_context(request, active_nav="learn")
+    context.update(
+        {
+            "glossary_entries": learn.GLOSSARY_ENTRIES,
+            "getting_started_steps": learn.GETTING_STARTED_STEPS,
+        }
+    )
+    return templates.TemplateResponse("learn.html", context)
+
+
+@app.get("/learn/getting-started", response_class=HTMLResponse)
+def getting_started_page(request: Request) -> HTMLResponse:
+    context = base_context(request, active_nav="learn")
+    context.update(
+        {
+            "glossary_entries": learn.GLOSSARY_ENTRIES,
+            "getting_started_steps": learn.GETTING_STARTED_STEPS,
+        }
+    )
+    return templates.TemplateResponse("getting_started.html", context)
 
 
 @app.get("/vouchers", response_class=HTMLResponse)
@@ -616,20 +674,27 @@ def expense_delete_blocked(expense_id: int) -> None:  # noqa: ARG001
 
 
 @app.get("/reports", response_class=HTMLResponse)
-def reports_page(request: Request, year: str | None = None, term: str | None = None) -> HTMLResponse:
+def reports_page(
+    request: Request,
+    year: str | None = None,
+    term: str | None = None,
+    tab: str | None = None,
+) -> HTMLResponse:
     selected_year = crud.parse_year(year)
     try:
         selected_term = crud.parse_term(term)
     except Exception:
         selected_term = 1
+    selected_tab = normalize_reports_tab(tab)
     year_data = ledger.yearly_report_data_from_ledger(selected_year)
     vat_data = vat_engine.aggregate_vat_term(selected_year, selected_term)
-    context = base_context(request, active_nav="reports")
+    context = base_context(request, active_nav=resolve_reports_nav(tab))
     context.update(
         {
             "years": available_years_from_vouchers(),
             "selected_year": selected_year,
             "selected_term": selected_term,
+            "selected_report_tab": selected_tab,
             "terms": vat_engine.term_choices(),
             "year_data": year_data,
             "vat_data": vat_data,
@@ -803,6 +868,33 @@ def reports_account_csv(
     return FileResponse(path=output, filename=output.name, media_type="text/csv")
 
 
+def legacy_import_page_context(
+    request: Request,
+    *,
+    form_data: dict[str, str] | None = None,
+    preview: dict | None = None,
+    import_result: dict | None = None,
+    errors: list[str] | None = None,
+    success_message: str = "",
+) -> dict:
+    candidates = legacy_import.discover_legacy_candidates()
+    context = base_context(request, active_nav="settings")
+    context.update(
+        {
+            "candidate_paths": [str(path) for path in candidates],
+            "form_data": form_data or {"db_path": "", "source_path": "", "import_settings": "0"},
+            "preview": preview,
+            "import_result": import_result,
+            "errors": errors or [],
+            "success_message": success_message,
+            "no_candidates_found": len(candidates) == 0,
+            "current_db_path": str(db.get_db_path().resolve()),
+            "backups_dir_path": str(db.BACKUPS_DIR.resolve()),
+        }
+    )
+    return context
+
+
 @app.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request, year: str | None = None) -> HTMLResponse:
     selected_year = crud.parse_year(year)
@@ -882,8 +974,109 @@ def run_legacy_migration(request: Request) -> RedirectResponse:
     require_admin(request)
     actor = current_actor(request)
     result = migrate_legacy.run_legacy_migration(actor=actor)
-    LOGGER.info("Legacy-migrering utfort av=%s resultat=%s", actor, result)
+    LOGGER.info(
+        "Legacy-migrering utfort av=%s incomes_migrert=%s expenses_migrert=%s",
+        actor,
+        result["incomes"]["migrated"],
+        result["expenses"]["migrated"],
+    )
     return RedirectResponse("/settings", status_code=303)
+
+
+@app.get("/settings/import-legacy", response_class=HTMLResponse)
+def import_legacy_page(request: Request) -> HTMLResponse:
+    require_admin(request)
+    context = legacy_import_page_context(request)
+    return templates.TemplateResponse("legacy_import.html", context)
+
+
+@app.post("/settings/import-legacy/preview", response_class=HTMLResponse)
+async def import_legacy_preview(
+    request: Request,
+    db_path: str = Form(""),
+    upload_db: UploadFile | None = File(default=None),
+    import_settings: str = Form("0"),
+) -> HTMLResponse:
+    require_admin(request)
+
+    errors: list[str] = []
+    selected_path: Path | None = None
+    if upload_db and upload_db.filename:
+        try:
+            selected_path = await save_legacy_upload(upload_db)
+        except HTTPException as exc:
+            errors.append(str(exc.detail))
+    elif db_path.strip():
+        selected_path = Path(db_path.strip()).expanduser()
+    else:
+        errors.append("Oppgi sti til DB-fil eller last opp en legacy-DB.")
+
+    preview: dict | None = None
+    if selected_path is not None:
+        preview = legacy_import.preview_legacy_database(selected_path)
+        if not preview["valid"]:
+            errors.extend(preview["errors"])
+
+    form_data = {
+        "db_path": db_path.strip(),
+        "source_path": str(selected_path.resolve()) if selected_path else "",
+        "import_settings": "1" if import_settings == "1" else "0",
+    }
+    context = legacy_import_page_context(request, form_data=form_data, preview=preview, errors=errors)
+    status = 422 if errors else 200
+    return templates.TemplateResponse("legacy_import.html", context, status_code=status)
+
+
+@app.post("/settings/import-legacy/confirm", response_class=HTMLResponse)
+def import_legacy_confirm(
+    request: Request,
+    source_path: str = Form(...),
+    import_settings: str = Form("0"),
+    confirm_import: str = Form("0"),
+) -> HTMLResponse:
+    require_admin(request)
+    errors: list[str] = []
+    actor = current_actor(request)
+    source = source_path.strip()
+    preview = legacy_import.preview_legacy_database(source) if source else None
+    if not source:
+        errors.append("Kilde-sti mangler.")
+    if confirm_import != "1":
+        errors.append("Du må bekrefte import før kjøring.")
+    if preview and not preview["valid"]:
+        errors.extend(preview["errors"])
+    if preview and preview.get("is_current_db"):
+        errors.append("Valgt fil er aktiv database. Velg en separat legacy-fil for import.")
+
+    form_data = {
+        "db_path": source,
+        "source_path": source,
+        "import_settings": "1" if import_settings == "1" else "0",
+    }
+    if errors:
+        context = legacy_import_page_context(request, form_data=form_data, preview=preview, errors=errors)
+        return templates.TemplateResponse("legacy_import.html", context, status_code=422)
+
+    try:
+        result = legacy_import.import_legacy_database(
+            source_path=source,
+            actor=actor,
+            import_settings=import_settings == "1",
+        )
+        LOGGER.info("Legacy-import fullfort av=%s import_settings=%s", actor, import_settings == "1")
+        success_message = "Legacy-data ble importert og migrert trygt. Opprinnelig database er sikkerhetskopiert."
+        context = legacy_import_page_context(
+            request,
+            form_data=form_data,
+            preview=preview,
+            import_result=result,
+            success_message=success_message,
+        )
+        return templates.TemplateResponse("legacy_import.html", context)
+    except Exception as exc:
+        errors.append(str(exc))
+        context = legacy_import_page_context(request, form_data=form_data, preview=preview, errors=errors)
+        return templates.TemplateResponse("legacy_import.html", context, status_code=422)
 
 
 @app.get("/attachments/{kind}/{item_id}")

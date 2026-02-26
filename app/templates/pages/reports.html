@@ -2,20 +2,22 @@
 {% import "components/card.html" as ui_card %}
 {% import "components/button.html" as ui_button %}
 {% import "components/badge.html" as ui_badge %}
+{% import "components/help_tooltip.html" as ui_help %}
 
-{% block page_title %}Reports | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+{% block page_title %}Rapporter | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
 
 {% block page_content %}
 <section class="{{ ui_card.classes() }}">
     <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-            <h1 class="text-2xl font-semibold text-slate-900">Reports</h1>
-            <p class="mt-1 text-sm text-slate-600">Journal, account, VAT and yearly overview from ledger data.</p>
+            <h1 class="text-2xl font-semibold text-slate-900">Rapporter</h1>
+            <p class="mt-1 text-sm text-slate-600">Journal, kontospesifikasjon, MVA-spesifikasjon og årsoversikt.</p>
         </div>
 
         <form method="get" action="/reports" class="grid w-full gap-3 md:grid-cols-3 xl:w-auto">
+            <input type="hidden" id="reports-selected-tab" name="tab" value="{{ selected_report_tab }}">
             <div>
-                <label for="reports-year" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Fiscal year</label>
+                <label for="reports-year" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Regnskapsår</label>
                 <select id="reports-year" name="year" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
                     {% for year in years %}
                     <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
@@ -23,7 +25,7 @@
                 </select>
             </div>
             <div>
-                <label for="reports-term" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">VAT term</label>
+                <label for="reports-term" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Termin {{ ui_help.icon(learn_tooltips.term) }}</label>
                 <select id="reports-term" name="term" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
                     {% for idx, label in terms %}
                     <option value="{{ idx }}" {% if idx == selected_term %}selected{% endif %}>{{ label }}</option>
@@ -31,16 +33,16 @@
                 </select>
             </div>
             <div class="flex items-end">
-                <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Oppdaterer">Update view</button>
+                <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Oppdaterer">Oppdater visning</button>
             </div>
         </form>
     </div>
 
-    <div class="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Report tabs">
-        <button type="button" class="report-tab {{ ui_button.classes('primary') }}" data-report-tab-target="year">Year overview</button>
-        <button type="button" class="report-tab {{ ui_button.classes('secondary') }}" data-report-tab-target="vat">VAT specification</button>
+    <div class="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Rapportfaner">
+        <button type="button" class="report-tab {{ ui_button.classes('primary') }}" data-report-tab-target="year">Årsoversikt</button>
+        <button type="button" class="report-tab {{ ui_button.classes('secondary') }}" data-report-tab-target="vat">MVA-spesifikasjon</button>
         <button type="button" class="report-tab {{ ui_button.classes('secondary') }}" data-report-tab-target="journal">Journal</button>
-        <button type="button" class="report-tab {{ ui_button.classes('secondary') }}" data-report-tab-target="accounts">Account specification</button>
+        <button type="button" class="report-tab {{ ui_button.classes('secondary') }}" data-report-tab-target="accounts">Kontospesifikasjon</button>
     </div>
 </section>
 
@@ -48,42 +50,42 @@
     <section class="{{ ui_card.classes() }} space-y-4">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-                <h2 class="text-lg font-semibold text-slate-900">Year overview</h2>
-                <p class="text-sm text-slate-600">Summary from ledger for {{ selected_year }}.</p>
+                <h2 class="text-lg font-semibold text-slate-900">Årsoversikt</h2>
+                <p class="text-sm text-slate-600">Oppsummering fra hovedbok for {{ selected_year }}.</p>
             </div>
             <form method="post" action="/reports/yearly">
                 <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
                 <input type="hidden" name="year" value="{{ selected_year }}">
-                <button type="submit" class="{{ ui_button.classes('primary') }}" data-loading-text="Genererer arsrapport">Download yearly PDF</button>
+                <button type="submit" class="{{ ui_button.classes('primary') }}" data-loading-text="Genererer årsrapport">Last ned årsrapport (PDF)</button>
             </form>
         </div>
 
         <div class="grid gap-4 md:grid-cols-3">
             <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Revenue</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Inntekter</p>
                 <p class="mt-2 text-xl font-semibold text-slate-900">{{ "%.2f"|format(year_data.income_total_nok) }} NOK</p>
             </article>
             <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Expenses</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Kostnader</p>
                 <p class="mt-2 text-xl font-semibold text-slate-900">{{ "%.2f"|format(year_data.expense_total_nok) }} NOK</p>
             </article>
             <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Result</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Resultat</p>
                 <p class="mt-2 text-xl font-semibold {% if year_data.result_nok >= 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ "%.2f"|format(year_data.result_nok) }} NOK</p>
             </article>
         </div>
     </section>
 
     <section class="{{ ui_card.classes() }}">
-        <h3 class="text-base font-semibold text-slate-900">Year transaction preview (first 20)</h3>
+        <h3 class="text-base font-semibold text-slate-900">Transaksjoner i år (første 20)</h3>
         <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200">
             <table class="min-w-full divide-y divide-slate-200 text-sm">
                 <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <tr>
-                        <th class="px-3 py-2">Date</th>
+                        <th class="px-3 py-2">Dato</th>
                         <th class="px-3 py-2">Type</th>
-                        <th class="px-3 py-2">Label</th>
-                        <th class="px-3 py-2 text-right">Amount</th>
+                        <th class="px-3 py-2">Tekst</th>
+                        <th class="px-3 py-2 text-right">Beløp</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -96,7 +98,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="4" class="px-3 py-8 text-center text-slate-500">No transactions in selected year.</td>
+                        <td colspan="4" class="px-3 py-8 text-center text-slate-500">Ingen transaksjoner i valgt år.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -113,19 +115,19 @@
     <section class="{{ ui_card.classes() }} space-y-4">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-                <h2 class="text-lg font-semibold text-slate-900">Journal specification</h2>
-                <p class="text-sm text-slate-600">Generate PDF/CSV and preview first 20 rows inline.</p>
+                <h2 class="text-lg font-semibold text-slate-900">Journal {{ ui_help.icon(learn_tooltips.journal) }}</h2>
+                <p class="text-sm text-slate-600">Generer PDF/CSV og forhåndsvis første 20 linjer.</p>
             </div>
-            <button id="journal-preview-button" type="button" class="{{ ui_button.classes('secondary') }}">Load preview</button>
+            <button id="journal-preview-button" type="button" class="{{ ui_button.classes('secondary') }}">Last forhåndsvisning</button>
         </div>
 
         <div class="grid gap-3 md:grid-cols-3">
             <div>
-                <label for="journal-start-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Start date</label>
+                <label for="journal-start-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Fra dato</label>
                 <input id="journal-start-date" type="date" value="{{ vat_data.start_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             </div>
             <div>
-                <label for="journal-end-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">End date</label>
+                <label for="journal-end-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Til dato</label>
                 <input id="journal-end-date" type="date" value="{{ vat_data.end_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             </div>
             <div class="flex items-end gap-2">
@@ -133,13 +135,13 @@
                     <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
                     <input type="hidden" name="start_date" value="{{ vat_data.start_date }}">
                     <input type="hidden" name="end_date" value="{{ vat_data.end_date }}">
-                    <button type="submit" class="{{ ui_button.classes('primary') }} w-full" data-loading-text="Genererer PDF">Export PDF</button>
+                    <button type="submit" class="{{ ui_button.classes('primary') }} w-full" data-loading-text="Genererer PDF">Eksporter PDF</button>
                 </form>
                 <form id="journal-csv-form" method="post" action="/reports/journal/csv" class="w-full">
                     <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
                     <input type="hidden" name="start_date" value="{{ vat_data.start_date }}">
                     <input type="hidden" name="end_date" value="{{ vat_data.end_date }}">
-                    <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Laster CSV">Export CSV</button>
+                    <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Laster CSV">Eksporter CSV</button>
                 </form>
             </div>
         </div>
@@ -148,10 +150,10 @@
             <table class="min-w-full divide-y divide-slate-200 text-sm">
                 <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <tr>
-                        <th class="px-3 py-2">Date</th>
-                        <th class="px-3 py-2">Voucher</th>
-                        <th class="px-3 py-2">Line</th>
-                        <th class="px-3 py-2">Account</th>
+                        <th class="px-3 py-2">Dato</th>
+                        <th class="px-3 py-2">Bilag</th>
+                        <th class="px-3 py-2">Linje</th>
+                        <th class="px-3 py-2">Konto</th>
                         <th class="px-3 py-2 text-right">Debet</th>
                         <th class="px-3 py-2 text-right">Kredit</th>
                         <th class="px-3 py-2">mvaKode</th>
@@ -159,7 +161,7 @@
                 </thead>
                 <tbody id="journal-preview-body" class="divide-y divide-slate-100">
                     <tr>
-                        <td colspan="7" class="px-3 py-8 text-center text-slate-500">Preview not loaded.</td>
+                        <td colspan="7" class="px-3 py-8 text-center text-slate-500">Forhåndsvisning ikke lastet.</td>
                     </tr>
                 </tbody>
             </table>
@@ -229,8 +231,16 @@
 
         const tabButtons = Array.from(document.querySelectorAll('[data-report-tab-target]'));
         const tabPanels = Array.from(document.querySelectorAll('[data-report-tab]'));
+        const selectedTabField = document.getElementById('reports-selected-tab');
 
-        const activateTab = (tabKey, pushHash = true) => {
+        const setUrlTab = (tabKey) => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', tabKey);
+            url.hash = `#${tabKey}`;
+            window.history.replaceState({}, '', url.toString());
+        };
+
+        const activateTab = (tabKey, updateUrl = true) => {
             tabPanels.forEach((panel) => {
                 if (panel.getAttribute('data-report-tab') === tabKey) {
                     panel.classList.remove('hidden');
@@ -248,8 +258,11 @@
                     button.classList.add('bg-white', 'text-slate-700', 'border', 'border-slate-300');
                 }
             });
-            if (pushHash) {
-                window.history.replaceState({}, '', `#${tabKey}`);
+            if (selectedTabField) {
+                selectedTabField.value = tabKey;
+            }
+            if (updateUrl) {
+                setUrlTab(tabKey);
             }
         };
 
@@ -262,9 +275,13 @@
             });
         });
 
-        const hashTab = window.location.hash.replace('#', '').trim();
+        const params = new URLSearchParams(window.location.search);
+        const tabFromQuery = params.get('tab') || '';
+        const tabFromHash = window.location.hash.replace('#', '').trim();
+        const serverTab = '{{ selected_report_tab }}';
         const allowedTabs = new Set(['year', 'vat', 'journal', 'accounts']);
-        activateTab(allowedTabs.has(hashTab) ? hashTab : 'year', false);
+        const firstMatch = [tabFromQuery, tabFromHash, serverTab].find((value) => allowedTabs.has(value));
+        activateTab(firstMatch || 'year', false);
 
         const syncRangeFields = (startId, endId, formIds, accountInputId = null) => {
             const startInput = document.getElementById(startId);
@@ -307,7 +324,7 @@
                 return;
             }
             if (!rows.length) {
-                tbody.innerHTML = `<tr><td colspan="${columns.length}" class="px-3 py-8 text-center text-slate-500">No rows for selected range.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${columns.length}" class="px-3 py-8 text-center text-slate-500">Ingen linjer i valgt periode.</td></tr>`;
                 return;
             }
             const html = rows.slice(0, 20).map((row) => {
@@ -322,7 +339,7 @@
             if (!tbody || !journalRange.startInput || !journalRange.endInput) {
                 return;
             }
-            tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-500">Loading preview...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-500">Laster forhåndsvisning...</td></tr>';
             try {
                 const payload = new URLSearchParams({
                     start_date: journalRange.startInput.value,
@@ -342,7 +359,7 @@
                 const rows = parseCsv(await response.text());
                 renderRows(tbody, rows, ['posting_date', 'voucher_ref', 'line_no', 'account_no', 'debit_nok', 'credit_nok', 'mva_code']);
             } catch (error) {
-                tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-8 text-center text-rose-700">Unable to load journal preview.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-8 text-center text-rose-700">Klarte ikke å laste journal.</td></tr>';
             }
         };
 
@@ -351,7 +368,7 @@
             if (!tbody || !accountRange.startInput || !accountRange.endInput) {
                 return;
             }
-            tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-500">Loading preview...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-500">Laster forhåndsvisning...</td></tr>';
             try {
                 const payload = new URLSearchParams({
                     start_date: accountRange.startInput.value,
@@ -372,7 +389,7 @@
                 const rows = parseCsv(await response.text());
                 renderRows(tbody, rows, ['account_no', 'posting_date', 'voucher_ref', 'debit_nok', 'credit_nok', 'running_balance_nok', 'description']);
             } catch (error) {
-                tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-8 text-center text-rose-700">Unable to load account preview.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-8 text-center text-rose-700">Klarte ikke å laste kontospesifikasjon.</td></tr>';
             }
         };
 
@@ -414,7 +431,7 @@
                 if (!code || !target) {
                     return;
                 }
-                target.innerHTML = '<p class="text-sm text-slate-500">Loading drilldown...</p>';
+                target.innerHTML = '<p class="text-sm text-slate-500">Laster detaljer...</p>';
                 try {
                     const response = await fetch(`/reports/mva/drilldown?year=${selectedYear}&term=${selectedTerm}&mva_code=${encodeURIComponent(code)}`);
                     if (!response.ok) {
@@ -423,7 +440,7 @@
                     const payload = await response.json();
                     const rows = payload.lines || [];
                     if (!rows.length) {
-                        target.innerHTML = '<p class="text-sm text-slate-500">No drilldown rows.</p>';
+                        target.innerHTML = '<p class="text-sm text-slate-500">Ingen detaljer.</p>';
                         detail.setAttribute('data-loaded', '1');
                         return;
                     }
@@ -436,10 +453,10 @@
                             <td class="px-2 py-1 text-right">${line.merverdiavgift_nok ?? '-'}</td>
                         </tr>`;
                     }).join('');
-                    target.innerHTML = `<div class="overflow-x-auto rounded border border-slate-200"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th class="px-2 py-1">Voucher</th><th class="px-2 py-1">Date</th><th class="px-2 py-1">Counterparty</th><th class="px-2 py-1 text-right">Base</th><th class="px-2 py-1 text-right">VAT</th></tr></thead><tbody class="divide-y divide-slate-100">${tableRows}</tbody></table></div>`;
+                    target.innerHTML = `<div class="overflow-x-auto rounded border border-slate-200"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th class="px-2 py-1">Bilag</th><th class="px-2 py-1">Dato</th><th class="px-2 py-1">Motpart</th><th class="px-2 py-1 text-right">Grunnlag</th><th class="px-2 py-1 text-right">MVA</th></tr></thead><tbody class="divide-y divide-slate-100">${tableRows}</tbody></table></div>`;
                     detail.setAttribute('data-loaded', '1');
                 } catch (error) {
-                    target.innerHTML = '<p class="text-sm text-rose-700">Unable to load drilldown.</p>';
+                    target.innerHTML = '<p class="text-sm text-rose-700">Klarte ikke å laste detaljer.</p>';
                 }
             });
         });

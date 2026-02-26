@@ -45,19 +45,19 @@ def _migration_1_legacy_tables(conn: sqlite3.Connection) -> None:
         """
         CREATE TABLE IF NOT EXISTS settings (
             id INTEGER PRIMARY KEY CHECK (id = 1),
-            company_name TEXT NOT NULL DEFAULT 'Wessel Media',
+            company_name TEXT NOT NULL DEFAULT 'Eksempel ENK',
             org_number TEXT,
             default_currency TEXT NOT NULL DEFAULT 'NOK',
             default_vat_rate REAL NOT NULL DEFAULT 25.0,
             default_output_vat_rate REAL NOT NULL DEFAULT 0.0,
-            primary_income_model TEXT NOT NULL DEFAULT 'Eksport av digitale tjenester (Google Ireland)',
+            primary_income_model TEXT NOT NULL DEFAULT 'Salg av digitale tjenester',
             vat_registered_from TEXT
         );
 
         INSERT OR IGNORE INTO settings (
             id, company_name, org_number, default_currency, default_vat_rate, default_output_vat_rate, primary_income_model, vat_registered_from
         ) VALUES (
-            1, 'Wessel Media', '', 'NOK', 25.0, 0.0, 'Eksport av digitale tjenester (Google Ireland)', NULL
+            1, 'Eksempel ENK', '', 'NOK', 25.0, 0.0, 'Salg av digitale tjenester', NULL
         );
 
         CREATE TABLE IF NOT EXISTS incomes (

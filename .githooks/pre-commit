@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+if [[ -z "${staged_files}" ]]; then
+    exit 0
+fi
+
+declare -a blocked_paths=()
+declare -a secret_hits=()
+
+is_allowed_data_gitkeep() {
+    case "$1" in
+        data/.gitkeep|data/attachments/.gitkeep|data/reports/.gitkeep|data/backups/.gitkeep)
+            return 0
+            ;;
+    esac
+    return 1
+}
+
+HIGH_CONF_SECRET_REGEX='AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|AIza[0-9A-Za-z_-]{35}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'
+GENERIC_LITERAL_SECRET_REGEX='(aws_secret_access_key|api[_-]?key|secret|token|password)[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"']{16,}["'"'"']'
+
+while IFS= read -r file; do
+    [[ -z "${file}" ]] && continue
+
+    case "${file}" in
+        *.db|*.sqlite|*.sqlite3|*.db-journal|*.sqlite-journal|*.sqlite-wal|*.sqlite-shm)
+            blocked_paths+=("${file} (database artifact)")
+            ;;
+    esac
+
+    base_name="$(basename "${file}")"
+    case "${base_name}" in
+        .env|.env.*)
+            blocked_paths+=("${file} (.env file)")
+            ;;
+    esac
+
+    if [[ "${file}" == data/* ]] && ! is_allowed_data_gitkeep "${file}"; then
+        blocked_paths+=("${file} (data folder content)")
+    fi
+
+    added_lines="$(git diff --cached --unified=0 -- "${file}" | grep -E '^\+' | grep -Ev '^\+\+\+' || true)"
+    [[ -z "${added_lines}" ]] && continue
+
+    if printf '%s\n' "${added_lines}" | grep -Eiq "${HIGH_CONF_SECRET_REGEX}"; then
+        secret_hits+=("${file}")
+        continue
+    fi
+
+    if printf '%s\n' "${added_lines}" | grep -Eiq "${GENERIC_LITERAL_SECRET_REGEX}"; then
+        secret_hits+=("${file}")
+        continue
+    fi
+done <<< "${staged_files}"
+
+if (( ${#blocked_paths[@]} > 0 )) || (( ${#secret_hits[@]} > 0 )); then
+    echo ""
+    echo "Commit blocked by pre-commit guard."
+
+    if (( ${#blocked_paths[@]} > 0 )); then
+        echo ""
+        echo "Blocked files:"
+        for item in "${blocked_paths[@]}"; do
+            echo "  - ${item}"
+        done
+    fi
+
+    if (( ${#secret_hits[@]} > 0 )); then
+        echo ""
+        echo "Potential secrets detected in staged changes:"
+        for item in "${secret_hits[@]}"; do
+            echo "  - ${item}"
+        done
+    fi
+
+    echo ""
+    echo "Remove sensitive files/content from the commit and try again."
+    exit 1
+fi
+
+exit 0

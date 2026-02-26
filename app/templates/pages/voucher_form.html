@@ -2,15 +2,16 @@
 {% import "components/card.html" as ui_card %}
 {% import "components/button.html" as ui_button %}
 {% import "components/badge.html" as ui_badge %}
+{% import "components/help_tooltip.html" as ui_help %}
 
-{% block page_title %}Ny voucher | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+{% block page_title %}Nytt bilag | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
 
 {% block page_content %}
 <section class="{{ ui_card.classes() }}">
     <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-            <h1 class="text-2xl font-semibold text-slate-900">Voucher entry</h1>
-            <p class="mt-1 text-sm text-slate-600">Create balanced journal entries with inline VAT preview.</p>
+            <h1 class="text-2xl font-semibold text-slate-900">Nytt bilag</h1>
+            <p class="mt-1 text-sm text-slate-600">Før balanserte posteringer med løpende MVA-forhåndsvisning.</p>
         </div>
         <div id="voucher-status-badges" class="flex flex-wrap items-center gap-2"></div>
     </div>
@@ -24,52 +25,52 @@
     <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
 
     <section class="{{ ui_card.classes() }}">
-        <h2 class="text-lg font-semibold text-slate-900">Header</h2>
+        <h2 class="text-lg font-semibold text-slate-900">Bilagshode</h2>
         <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div>
-                <label for="voucher_type" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Voucher type</label>
+                <label for="voucher_type" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Bilagstype {{ ui_help.icon(learn_tooltips.voucher_type) }}</label>
                 <input id="voucher_type" name="voucher_type" type="text" value="{{ form_data.voucher_type }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" required>
             </div>
             <div>
                 <label for="status" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</label>
                 <select id="status" name="status" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
                     {% set selected_status = form_data.status|lower %}
-                    <option value="posted" {% if selected_status == 'posted' %}selected{% endif %}>posted</option>
-                    <option value="draft" {% if selected_status == 'draft' %}selected{% endif %}>draft</option>
-                    <option value="reversed" {% if selected_status == 'reversed' %}selected{% endif %}>reversed</option>
-                    <option value="locked" {% if selected_status == 'locked' %}selected{% endif %}>locked</option>
+                    <option value="posted" {% if selected_status == 'posted' %}selected{% endif %}>bokført</option>
+                    <option value="draft" {% if selected_status == 'draft' %}selected{% endif %}>kladd</option>
+                    <option value="reversed" {% if selected_status == 'reversed' %}selected{% endif %}>reversert</option>
+                    <option value="locked" {% if selected_status == 'locked' %}selected{% endif %}>låst</option>
                 </select>
             </div>
             <div>
-                <label for="series" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Series</label>
+                <label for="series" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Serie</label>
                 <input id="series" name="series" type="text" value="{{ form_data.series }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             </div>
             <div>
-                <label for="currency" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Currency</label>
+                <label for="currency" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Valuta</label>
                 <input id="currency" name="currency" type="text" value="{{ form_data.currency }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             </div>
             <div>
-                <label for="document_date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Document date</label>
+                <label for="document_date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Dokumentdato {{ ui_help.icon(learn_tooltips.document_date) }}</label>
                 <input id="document_date" name="document_date" type="date" value="{{ form_data.document_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" required>
             </div>
             <div>
-                <label for="posting_date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Posting date</label>
+                <label for="posting_date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Bokføringsdato {{ ui_help.icon(learn_tooltips.posting_date) }}</label>
                 <input id="posting_date" name="posting_date" type="date" value="{{ form_data.posting_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" required>
             </div>
             <div>
-                <label for="counterparty_name" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Counterparty</label>
+                <label for="counterparty_name" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Motpart</label>
                 <input id="counterparty_name" name="counterparty_name" type="text" value="{{ form_data.counterparty_name }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             </div>
             <div>
-                <label for="counterparty_id" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Counterparty org no</label>
+                <label for="counterparty_id" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Motpart org.nr.</label>
                 <input id="counterparty_id" name="counterparty_id" type="text" value="{{ form_data.counterparty_id }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             </div>
             <div>
-                <label for="exchange_rate" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Exchange rate</label>
+                <label for="exchange_rate" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Valutakurs</label>
                 <input id="exchange_rate" name="exchange_rate" type="number" step="0.0001" value="{{ form_data.exchange_rate }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             </div>
             <div class="md:col-span-2 xl:col-span-3">
-                <label for="description" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Description</label>
+                <label for="description" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Beskrivelse</label>
                 <textarea id="description" name="description" rows="2" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ form_data.description }}</textarea>
             </div>
         </div>
@@ -78,13 +79,13 @@
     <section class="{{ ui_card.classes() }} space-y-4">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-                <h2 class="text-lg font-semibold text-slate-900">Line items</h2>
-                <p class="text-sm text-slate-500">Debet and kredit must balance in whole NOK.</p>
+                <h2 class="text-lg font-semibold text-slate-900">Posteringer</h2>
+                <p class="text-sm text-slate-500">Debet og kredit må balansere i hele kroner.</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <span id="balance-indicator" class="{{ ui_badge.classes('danger') }}">Not balanced</span>
+                <span id="balance-indicator" class="{{ ui_badge.classes('danger') }}">Ikke i balanse</span>
                 <span id="balance-detail" class="text-xs text-slate-500">Debet 0.00 | Kredit 0.00</span>
-                <button id="add-line-button" type="button" class="{{ ui_button.classes('secondary') }}">Add line</button>
+                <button id="add-line-button" type="button" class="{{ ui_button.classes('secondary') }}">Legg til linje</button>
             </div>
         </div>
 
@@ -92,16 +93,16 @@
             <table class="min-w-full text-sm">
                 <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <tr>
-                        <th class="px-2 py-2">Account</th>
-                        <th class="px-2 py-2">Debet</th>
-                        <th class="px-2 py-2">Kredit</th>
-                        <th class="px-2 py-2">Description</th>
-                        <th class="px-2 py-2">mvaKode</th>
-                        <th class="px-2 py-2">VAT %</th>
-                        <th class="px-2 py-2">VAT base</th>
-                        <th class="px-2 py-2">VAT amount</th>
-                        <th class="px-2 py-2">Line bilag</th>
-                        <th class="px-2 py-2 text-right">Action</th>
+                        <th class="px-2 py-2">Konto {{ ui_help.icon(learn_tooltips.account_chart) }}</th>
+                        <th class="px-2 py-2">Debet {{ ui_help.icon(learn_tooltips.debet_kredit) }}</th>
+                        <th class="px-2 py-2">Kredit {{ ui_help.icon(learn_tooltips.debet_kredit) }}</th>
+                        <th class="px-2 py-2">Beskrivelse</th>
+                        <th class="px-2 py-2">mvaKode {{ ui_help.icon(learn_tooltips.vat_code) }}</th>
+                        <th class="px-2 py-2">Sats % {{ ui_help.icon(learn_tooltips.vat_rate) }}</th>
+                        <th class="px-2 py-2">Grunnlag {{ ui_help.icon(learn_tooltips.vat_base) }}</th>
+                        <th class="px-2 py-2">MVA-beløp {{ ui_help.icon(learn_tooltips.vat_amount) }}</th>
+                        <th class="px-2 py-2">Bilag-ID linje</th>
+                        <th class="px-2 py-2 text-right">Handling</th>
                     </tr>
                 </thead>
                 <tbody id="line-items-body" class="divide-y divide-slate-100"></tbody>
@@ -110,13 +111,13 @@
 
         <div class="grid gap-4 md:grid-cols-3">
             <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">VAT preview</p>
-                <p id="vat-preview-base" class="mt-2 text-sm text-slate-700">Base total: 0.00 NOK</p>
-                <p id="vat-preview-amount" class="text-sm text-slate-700">VAT total: 0.00 NOK</p>
-                <p id="vat-preview-diff" class="text-sm text-slate-500">Difference: 0.00 NOK</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">MVA-forhåndsvisning</p>
+                <p id="vat-preview-base" class="mt-2 text-sm text-slate-700">Grunnlag total: 0.00 NOK</p>
+                <p id="vat-preview-amount" class="text-sm text-slate-700">MVA total: 0.00 NOK</p>
+                <p id="vat-preview-diff" class="text-sm text-slate-500">Avvik: 0.00 NOK</p>
             </div>
             <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 md:col-span-2">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">JSON payload preview</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Forhåndsvisning av linjer (JSON)</p>
                 <pre id="lines-json-preview" class="mt-2 max-h-40 overflow-auto rounded bg-slate-900/95 p-3 text-xs text-slate-100"></pre>
             </div>
         </div>
@@ -128,19 +129,19 @@
     </section>
 
     <section class="{{ ui_card.classes() }}">
-        <h2 class="text-lg font-semibold text-slate-900">Bilag attachment</h2>
-        <p class="mt-1 text-sm text-slate-600">Accepted formats: PDF, JPG, JPEG, PNG.</p>
+        <h2 class="text-lg font-semibold text-slate-900">Bilagsvedlegg</h2>
+        <p class="mt-1 text-sm text-slate-600">Tillatte formater: PDF, JPG, JPEG, PNG.</p>
         <div class="mt-4 max-w-md">
-            <label for="attachment" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Attachment</label>
+            <label for="attachment" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Vedlegg</label>
             <input id="attachment" type="file" name="attachment" accept=".pdf,.jpg,.jpeg,.png" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
     </section>
 
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <button id="delete-draft-button" type="button" class="{{ ui_button.classes('destructive') }}">Delete draft</button>
+        <button id="delete-draft-button" type="button" class="{{ ui_button.classes('destructive') }}">Tøm kladd</button>
         <div class="flex flex-wrap items-center gap-2">
-            <a href="/vouchers" class="{{ ui_button.classes('secondary') }}">Cancel</a>
-            <button id="voucher-submit" type="submit" class="{{ ui_button.classes('primary') }}" data-loading-text="Saving voucher">Save voucher</button>
+            <a href="/vouchers" class="{{ ui_button.classes('secondary') }}">Avbryt</a>
+            <button id="voucher-submit" type="submit" class="{{ ui_button.classes('primary') }}" data-loading-text="Lagrer bilag">Lagre bilag</button>
         </div>
     </div>
 </form>
@@ -153,7 +154,7 @@
 
 <noscript>
     <section class="{{ ui_card.classes() }}">
-        <p class="text-sm text-rose-700">JavaScript is required for the line item editor in this version.</p>
+        <p class="text-sm text-rose-700">JavaScript må være aktivert for linjeeditoren i denne versjonen.</p>
     </section>
 </noscript>
 {% endblock %}
@@ -207,7 +208,7 @@
             return `
                 <tr data-line-row class="align-top">
                     <td class="px-2 py-2">
-                        <label class="sr-only">Account</label>
+                        <label class="sr-only">Konto</label>
                         <input data-field="account_no" list="account-options" type="text" value="${escapeHtml(line.account_no || '')}" class="w-32 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" placeholder="1920">
                     </td>
                     <td class="px-2 py-2">
@@ -219,31 +220,31 @@
                         <input data-field="credit_nok" type="number" step="0.01" value="${escapeHtml(line.credit_nok ?? '')}" class="w-24 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" placeholder="0">
                     </td>
                     <td class="px-2 py-2">
-                        <label class="sr-only">Description</label>
-                        <input data-field="description" type="text" value="${escapeHtml(line.description || '')}" class="w-48 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" placeholder="Description">
+                        <label class="sr-only">Beskrivelse</label>
+                        <input data-field="description" type="text" value="${escapeHtml(line.description || '')}" class="w-48 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" placeholder="Beskrivelse">
                     </td>
                     <td class="px-2 py-2">
-                        <label class="sr-only">VAT code</label>
+                        <label class="sr-only">mvaKode</label>
                         <input data-field="vat_mva_code" type="text" value="${escapeHtml(line.vat_mva_code || '')}" class="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" placeholder="3">
                     </td>
                     <td class="px-2 py-2">
-                        <label class="sr-only">VAT rate percent</label>
+                        <label class="sr-only">MVA-sats prosent</label>
                         <input data-field="vat_rate_percent" type="number" step="0.01" value="${escapeHtml(vatRatePercent)}" class="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" placeholder="25">
                     </td>
                     <td class="px-2 py-2">
-                        <label class="sr-only">VAT base</label>
+                        <label class="sr-only">Grunnlag</label>
                         <input data-field="vat_base_nok" type="number" step="0.01" value="${escapeHtml(line.vat_base_nok ?? '')}" class="w-24 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" placeholder="0">
                     </td>
                     <td class="px-2 py-2">
-                        <label class="sr-only">VAT amount</label>
+                        <label class="sr-only">MVA-beløp</label>
                         <input data-field="vat_amount_nok" type="number" step="0.01" value="${escapeHtml(line.vat_amount_nok ?? '')}" class="w-24 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" placeholder="0">
                     </td>
                     <td class="px-2 py-2">
-                        <label class="sr-only">Line bilag</label>
+                        <label class="sr-only">Bilag-ID linje</label>
                         <input data-field="bilag_id" type="number" step="1" value="${escapeHtml(line.bilag_id ?? '')}" class="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" placeholder="ID">
                     </td>
                     <td class="px-2 py-2 text-right">
-                        <button type="button" data-remove-line class="inline-flex items-center rounded-md border border-slate-300 px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Remove</button>
+                        <button type="button" data-remove-line class="inline-flex items-center rounded-md border border-slate-300 px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Fjern</button>
                     </td>
                 </tr>
             `;
@@ -293,16 +294,16 @@
             const status = (statusInput?.value || '').trim().toLowerCase();
             const badges = [];
             if (status === 'posted') {
-                badges.push('<span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">POSTED</span>');
+                badges.push('<span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">BOKFØRT</span>');
             }
             if (status === 'locked') {
-                badges.push('<span class="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-700">LOCKED</span>');
+                badges.push('<span class="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-700">LÅST</span>');
             }
             if (voucherType === 'reversal' || status === 'reversed') {
-                badges.push('<span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">REVERSAL</span>');
+                badges.push('<span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">REVERSERING</span>');
             }
             if (badges.length === 0) {
-                badges.push('<span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">DRAFT</span>');
+                badges.push('<span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">KLADD</span>');
             }
             statusBadges.innerHTML = badges.join('');
         };
@@ -325,10 +326,10 @@
                 balanceIndicator.className = 'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium';
                 if (Math.abs(diff) < 0.0001 && (debitTotal > 0 || creditTotal > 0)) {
                     balanceIndicator.classList.add('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
-                    balanceIndicator.textContent = 'Balanced';
+                    balanceIndicator.textContent = 'I balanse';
                 } else {
                     balanceIndicator.classList.add('border-rose-200', 'bg-rose-50', 'text-rose-700');
-                    balanceIndicator.textContent = 'Not balanced';
+                    balanceIndicator.textContent = 'Ikke i balanse';
                 }
             }
 
@@ -343,13 +344,13 @@
             const vatDiff = vatAmountTotal - calculatedVat;
 
             if (vatBaseLabel) {
-                vatBaseLabel.textContent = `Base total: ${vatBaseTotal.toFixed(2)} NOK`;
+                vatBaseLabel.textContent = `Grunnlag total: ${vatBaseTotal.toFixed(2)} NOK`;
             }
             if (vatAmountLabel) {
-                vatAmountLabel.textContent = `VAT total: ${vatAmountTotal.toFixed(2)} NOK`;
+                vatAmountLabel.textContent = `MVA total: ${vatAmountTotal.toFixed(2)} NOK`;
             }
             if (vatDiffLabel) {
-                vatDiffLabel.textContent = `Difference: ${vatDiff.toFixed(2)} NOK`;
+                vatDiffLabel.textContent = `Avvik: ${vatDiff.toFixed(2)} NOK`;
                 vatDiffLabel.classList.remove('text-rose-700', 'text-emerald-700', 'text-slate-500');
                 if (Math.abs(vatDiff) < 0.5) {
                     vatDiffLabel.classList.add('text-emerald-700');
@@ -394,14 +395,14 @@
             const lines = buildLines();
             if (!lines.length) {
                 event.preventDefault();
-                window.alert('At least one line is required.');
+                window.alert('Minst én linje må fylles ut.');
                 return;
             }
             const debitTotal = lines.reduce((sum, line) => sum + (line.debit_nok || 0), 0);
             const creditTotal = lines.reduce((sum, line) => sum + (line.credit_nok || 0), 0);
             if (Math.abs(debitTotal - creditTotal) > 0.0001) {
                 event.preventDefault();
-                window.alert('Debet and kredit must balance before submit.');
+                window.alert('Debet og kredit må balansere før lagring.');
             }
         });
 
@@ -434,7 +435,7 @@
                 updateMetrics();
             };
             if (typeof window.regnskapConfirm === 'function') {
-                window.regnskapConfirm('Delete current draft values from the form?', resetDraft);
+                window.regnskapConfirm('Tøm alle verdier i denne kladden?', resetDraft);
             } else {
                 resetDraft();
             }
