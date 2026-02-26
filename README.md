@@ -1,16 +1,39 @@
-# Mini-regnskap for ENK
+# Mini Regnskap ENK
 
-Lokal FastAPI-app for ENK med bilagsføring (double-entry), MVA-spesifikasjon, term-lås, korreksjonsflyt, rapporter og lokal innlogging.
+Mini Regnskap ENK er et lokalt regnskapssystem for enkeltpersonforetak (ENK) i Norge. Applikasjonen kjører med FastAPI, Jinja og SQLite uten skykrav, og er laget for trygg, praktisk bokføring med bilag, MVA, periodelås og rapporter.
+
+## Prosjektets visjon
+
+Prosjektet er bygget for å gi små entreprenører i Norge et enkelt, lokalt og forståelig verktøy for regnskap i hverdagen. Målet er at koden skal være fri å lese, forstå og kjøre lokalt (source available), samtidig som kommersiell videredistribusjon styres av lisensvilkår. Videre utvikling prioriterer bedre brukerflyt, tydeligere kontroller for bokføringskvalitet og tryggere backup-/gjenopprettingsrutiner.
+
+## Hva systemet gjør
+
+- Bilagsføring med dobbel bokføring (`vouchers` + `voucher_lines`)
+- Vedleggshåndtering for bilag (PDF/JPG/JPEG/PNG)
+- MVA-grunnlag per termin og eksport (PDF, JSON, CSV)
+- Årsrapport, journal og kontospesifikasjon
+- Terminlås og korreksjonsflyt (reversering + korrigert bilag)
+- Lokal innlogging med hashed passord og sesjoner
+- Legacy-import fra eldre SQLite-database
+
+## Lokal-first og ingen skyavhengigheter
+
+- Data lagres lokalt i prosjektmappen (`data/`)
+- Standard database er `data/app.db`
+- Rapporter, vedlegg og backuper lagres lokalt i underkataloger
+- Ingen automatisk synkronisering eller opplasting til skytjenester
 
 ## Teknologi
 
 - Python 3.11+
 - FastAPI + Jinja2
-- SQLite (`data/app.db`)
-- ReportLab (PDF)
-- Pytest
+- SQLite
+- ReportLab (PDF-generering)
+- Pytest (tester)
 
-## Oppstart
+## Kom i gang
+
+### Alternativ 1: Oppstartsskript (Windows)
 
 ```powershell
 .\scripts\start.ps1
@@ -22,59 +45,72 @@ eller:
 scripts\start.bat
 ```
 
-## Kom i gang (kortversjon)
+### Alternativ 2: Manuell oppstart
 
-1. Åpne `http://127.0.0.1:8000/bootstrap-admin`.
-2. Opprett første adminbruker og logg inn.
-3. Gå til `Innstillinger` og fyll inn firmaopplysninger.
-4. Opprett bilag i `Bilag -> Nytt bilag`.
-5. Legg ved bilag (PDF/JPG/PNG) ved behov.
-6. Kjør rapporter i `Rapporter`.
-7. Lås termin i `Innstillinger` når perioden er ferdig avstemt.
-8. Rett feil via `Bilag -> Opprett korreksjon` (reversering + nytt korrigert bilag).
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
 
-## Eksempelbilag
+Åpne deretter `http://127.0.0.1:8000/bootstrap-admin` for å opprette første adminbruker.
 
-### YouTube-inntekt (enkelt eksempel)
+## Første gangs bruk
 
-- Debet `1920 Bank`
-- Kredit `3100 Salgsinntekt avgiftsfri` (eller `3000` + MVA-felt ved avgiftspliktig salg)
+1. Opprett adminbruker på `/bootstrap-admin`.
+2. Logg inn på `/login`.
+3. Sett firmaopplysninger under `Innstillinger`.
+4. Opprett bilag under `Bilag`.
+5. Generer rapporter under `Rapporter`.
+6. Lås termin når perioden er ferdig avstemt.
 
-### PC-kjøp med MVA (eksempel)
+## Demo-data
 
-- Debet kostnadskonto (f.eks. `4000/5000`) for netto
-- Debet `2720 Inngående MVA`
-- Kredit `1920 Bank` for totalbeløp
+Det finnes en enkel seeder for demo/testing:
 
-## Læringsinnhold i appen
+```powershell
+$env:PYTHONPATH='.'
+python -m app.seed_demo
+```
 
-- `Lær`-meny med begrepsliste på bokmål.
-- `Kom i gang (ENK)`-side i appen.
-- Tooltip (`?`) ved avanserte felter i skjemaer og rapporter.
+Se [DEMO_DATA.md](DEMO_DATA.md) for anbefalt trygg arbeidsflyt uten ekte data.
 
-## Legacy-data og import
+## Backup og gjenoppretting
 
-### Når data allerede ligger i aktiv DB
+Lag backup:
 
-Bruk `Innstillinger -> Kjør legacy-migrering`.
+```powershell
+$env:PYTHONPATH='.'
+python -m app.backup_cli backup
+```
 
-### Når data ligger i separat gammel DB-fil
+Verifiser backup:
 
-Bruk `Innstillinger -> Importer gammel database`.
+```powershell
+$env:PYTHONPATH='.'
+python -m app.backup_cli verify --archive data/backups/backup_YYYYMMDD_HHMMSS.zip
+```
 
-Flyten gjør:
+Anbefaling:
 
-1. Schema-validering (`settings`, `incomes`, `expenses`).
-2. Forhåndsvisning av antall rader.
-3. Eksplisitt bekreftelse før import.
-4. Trygg kjøring via staging-kopi + backup før bytte.
+- Ta backup før migrering, større endringer og før terminlås
+- Oppbevar minst én kryptert kopi utenfor arbeidsmaskinen
+- Test gjenoppretting jevnlig i et separat testmiljø
 
-## Rapporter
+## Arkitektur (kort oversikt)
 
-- Årsrapport: `/reports/yearly`
-- MVA (PDF/JSON/CSV): `/reports/mva`, `/reports/mva/json`, `/reports/mva/csv`
-- Journal (PDF/CSV): `/reports/journal/pdf`, `/reports/journal/csv`
-- Kontospesifikasjon (PDF/CSV): `/reports/accounts/pdf`, `/reports/accounts/csv`
+- `app/main.py`: HTTP-ruter, sideflyt og validering av innsendt data
+- `app/db.py`: databaseoppsett, katalogstruktur og migreringer
+- `app/ledger.py`: kjernelogikk for bokføring, bilag og korreksjoner
+- `app/vat_engine.py`: MVA-beregninger og MVA-datasett
+- `app/pdf_reports.py`: PDF-rapporter
+- `app/auth.py`: brukere, passordhashing og sesjoner
+- `app/legacy_import.py` + `app/migrate_legacy.py`: import/migrering fra gammel modell
+- `app/backup_cli.py`: CLI for backup og verifisering
+- `data/`: lokal database, vedlegg, rapporter og backupfiler
+- `tests/`: automatiske tester for ruter, ledger og MVA
 
 ## Test
 
@@ -83,10 +119,55 @@ $env:PYTHONPATH='.'
 pytest -q
 ```
 
-## Skjermbilder (plassholdere)
+## Sikkerhet
 
-- `[Skjermbildeplassholder] Oversikt` -> `docs/screenshots/oversikt.png`
-- `[Skjermbildeplassholder] Bilagsskjema` -> `docs/screenshots/bilag_form.png`
-- `[Skjermbildeplassholder] Rapporter (MVA/Konto)` -> `docs/screenshots/rapporter.png`
-- `[Skjermbildeplassholder] Lær / Kom i gang` -> `docs/screenshots/laer.png`
-- `[Skjermbildeplassholder] Legacy-import` -> `docs/screenshots/legacy_import.png`
+Hva som lagres lokalt:
+
+- Bokføringsdata (bilag, linjer, perioder, innstillinger)
+- Brukerkontoer med passordhash (ikke klartekstpassord)
+- Vedlegg og genererte rapporter
+- Revisjonsspor i databasen (`audit_log`)
+
+Lokal-first håndtering:
+
+- Ingen skykobling er nødvendig for normal bruk
+- Data ligger i lokale filer under `data/`
+- Tilgangsstyring skjer via lokal innlogging og sesjonscookie
+
+Backup-anbefaling:
+
+- Bruk innebygget backup-CLI
+- Krypter backup ved ekstern lagring
+- Behold flere historiske backupversjoner
+
+Se [SECURITY.md](SECURITY.md) og [SECURITY_AUDIT_REPORT.md](SECURITY_AUDIT_REPORT.md) for mer detaljer.
+
+## Lisens
+
+Prosjektet er **source available** under **Business Source License 1.1 (BUSL-1.1)**. Dette er ikke en OSI-godkjent open source-lisens.
+
+Lisensparametere for dette repoet:
+
+- Change Date: `2029-02-26`
+- Change License etter Change Date: `GPL-3.0-or-later`
+
+Tillatt:
+
+- Lese og inspisere kildekoden
+- Kjøres lokalt i henhold til lisensvilkårene i `LICENSE`
+- Intern bruk innenfor rammene av `Additional Use Grant`
+
+Ikke tillatt uten separat avtale med rettighetshaver:
+
+- Kommersiell videresalg eller redistribusjon av løsningen
+- Tilby løsningen som tjeneste for tredjeparter utover lisensens grenser
+
+Viktige referanser:
+
+- Offisiell BUSL-tekst: <https://mariadb.com/bsl11/>
+- Open Source Initiative (OSD): <https://opensource.org/osd>
+- Gjeldende prosjektlisens: [LICENSE](LICENSE)
+
+## Bidra
+
+Se [CONTRIBUTING.md](CONTRIBUTING.md) for utvikleroppsett, testkrav og kodestil.
