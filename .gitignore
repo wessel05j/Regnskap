@@ -39,7 +39,17 @@ data/backups/*
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
 *.log
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.der
 
 # IDE / OS
 .vscode/
