@@ -1,29 +1,30 @@
 {% import "components/card.html" as ui_card %}
 {% import "components/button.html" as ui_button %}
+{% import "components/help_tooltip.html" as ui_help %}
 
 <section class="{{ ui_card.classes() }} space-y-4">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-            <h2 class="text-lg font-semibold text-slate-900">Account specification</h2>
-            <p class="text-sm text-slate-600">Generate account reports and preview first 20 rows inline.</p>
+            <h2 class="text-lg font-semibold text-slate-900">Kontospesifikasjon {{ ui_help.icon(learn_tooltips.account_spec) }}</h2>
+            <p class="text-sm text-slate-600">Generer rapport og forhåndsvis første 20 linjer.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <button id="accounts-preview-button" type="button" class="{{ ui_button.classes('secondary') }}">Load preview</button>
+            <button id="accounts-preview-button" type="button" class="{{ ui_button.classes('secondary') }}">Last forhåndsvisning</button>
         </div>
     </div>
 
     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div>
-            <label for="accounts-start-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Start date</label>
+            <label for="accounts-start-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Fra dato</label>
             <input id="accounts-start-date" type="date" value="{{ vat_data.start_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div>
-            <label for="accounts-end-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">End date</label>
+            <label for="accounts-end-date" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Til dato</label>
             <input id="accounts-end-date" type="date" value="{{ vat_data.end_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div>
-            <label for="accounts-account-no" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Account (optional)</label>
-            <input id="accounts-account-no" type="text" placeholder="e.g. 3000" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            <label for="accounts-account-no" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Konto (valgfritt) {{ ui_help.icon(learn_tooltips.account_chart) }}</label>
+            <input id="accounts-account-no" type="text" placeholder="f.eks. 3000" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div class="flex items-end gap-2">
             <form id="accounts-pdf-form" method="post" action="/reports/accounts/pdf" class="w-full">
@@ -31,14 +32,14 @@
                 <input type="hidden" name="start_date" value="{{ vat_data.start_date }}">
                 <input type="hidden" name="end_date" value="{{ vat_data.end_date }}">
                 <input type="hidden" name="account_no" value="">
-                <button type="submit" class="{{ ui_button.classes('primary') }} w-full" data-loading-text="Genererer PDF">Export PDF</button>
+                <button type="submit" class="{{ ui_button.classes('primary') }} w-full" data-loading-text="Genererer PDF">Eksporter PDF</button>
             </form>
             <form id="accounts-csv-form" method="post" action="/reports/accounts/csv" class="w-full">
                 <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
                 <input type="hidden" name="start_date" value="{{ vat_data.start_date }}">
                 <input type="hidden" name="end_date" value="{{ vat_data.end_date }}">
                 <input type="hidden" name="account_no" value="">
-                <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Laster CSV">Export CSV</button>
+                <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Laster CSV">Eksporter CSV</button>
             </form>
         </div>
     </div>
@@ -47,18 +48,18 @@
         <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
-                    <th class="px-3 py-2">Account</th>
-                    <th class="px-3 py-2">Date</th>
-                    <th class="px-3 py-2">Voucher</th>
+                    <th class="px-3 py-2">Konto</th>
+                    <th class="px-3 py-2">Dato</th>
+                    <th class="px-3 py-2">Bilag</th>
                     <th class="px-3 py-2 text-right">Debet</th>
                     <th class="px-3 py-2 text-right">Kredit</th>
-                    <th class="px-3 py-2 text-right">Running balance</th>
-                    <th class="px-3 py-2">Description</th>
+                    <th class="px-3 py-2 text-right">Løpende saldo</th>
+                    <th class="px-3 py-2">Beskrivelse</th>
                 </tr>
             </thead>
             <tbody id="accounts-preview-body" class="divide-y divide-slate-100">
                 <tr>
-                    <td colspan="7" class="px-3 py-8 text-center text-slate-500">Preview not loaded.</td>
+                    <td colspan="7" class="px-3 py-8 text-center text-slate-500">Forhåndsvisning ikke lastet.</td>
                 </tr>
             </tbody>
         </table>

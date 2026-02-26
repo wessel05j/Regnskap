@@ -55,18 +55,19 @@
             </div>
 
             <nav class="space-y-1" aria-label="Hovedmeny">
-                <a href="/" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'dashboard' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Dashboard</a>
-                <a href="/vouchers" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'vouchers' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Vouchers</a>
-                <a href="/reports" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'reports' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Reports</a>
-                <a href="/reports#vat" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'reports' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">VAT</a>
-                <a href="/reports#accounts" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'reports' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Accounts</a>
-                <a href="/settings" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'settings' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Settings</a>
+                <a href="/" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'dashboard' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Oversikt</a>
+                <a href="/vouchers" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'vouchers' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Bilag</a>
+                <a href="/reports" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'reports' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Rapporter</a>
+                <a href="/reports?tab=vat" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'reports_vat' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">MVA</a>
+                <a href="/reports?tab=accounts" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'reports_accounts' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Konto</a>
+                <a href="/learn" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'learn' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Lær</a>
+                <a href="/settings" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'settings' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Innstillinger</a>
             </nav>
 
             <form class="mt-auto px-2" method="post" action="/logout">
                 <input type="hidden" name="csrf_token" value="{{ request.cookies.get('session_token', '') }}">
                 <button type="submit" class="{{ ui_button.classes('destructive') }} w-full" data-loading-text="Logger ut">
-                    Logout
+                    Logg ut
                 </button>
             </form>
         </div>
@@ -77,23 +78,29 @@
             <div class="flex h-16 items-center justify-between gap-4 px-4 lg:px-6">
                 <div class="flex items-center gap-3">
                     <button id="sidebar-toggle" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 lg:hidden" aria-label="Vis meny">
-                        <span class="text-xs font-semibold">Menu</span>
+                        <span class="text-xs font-semibold">Meny</span>
                     </button>
                     <div>
                         <p class="text-sm font-semibold text-slate-900">{{ company_name }}</p>
-                        <p class="text-xs text-slate-500">Server-rendered ENK ledger</p>
+                        <p class="text-xs text-slate-500">ENK-regnskap</p>
                     </div>
+                </div>
+
+                <div class="hidden items-center gap-2 md:flex">
+                    <a href="/reports" class="{{ 'bg-indigo-600 text-white' if active_nav == 'reports' else 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50' }} inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium transition">Rapporter</a>
+                    <a href="/reports?tab=vat" class="{{ 'bg-indigo-600 text-white' if active_nav == 'reports_vat' else 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50' }} inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium transition">MVA</a>
+                    <a href="/reports?tab=accounts" class="{{ 'bg-indigo-600 text-white' if active_nav == 'reports_accounts' else 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50' }} inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium transition">Konto</a>
                 </div>
 
                 <div class="flex flex-wrap items-center justify-end gap-2 text-xs sm:text-sm">
                     <span id="fiscal-year-indicator" data-fiscal-year="{{ inferred_year or '' }}" class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-medium text-slate-700">
-                        Fiscal year: {{ inferred_year or 'auto' }}
+                        Regnskapsår: {{ inferred_year or 'automatisk' }}
                     </span>
                     <span id="lock-status-chip" data-fiscal-year="{{ inferred_year or '' }}" class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-medium text-slate-700">
-                        Lock status: checking
+                        Låsestatus: sjekker
                     </span>
                     <span class="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 font-medium text-slate-700">
-                        {{ current_user.username if current_user else 'Guest' }}
+                        {{ current_user.username if current_user else 'Gjest' }}
                     </span>
                 </div>
             </div>
@@ -109,7 +116,7 @@
 
         {% if has_auth_shell %}
         <div id="session-timeout-banner" class="hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Session timeout warning: automatic logout expected in <span id="session-timeout-countdown" class="font-semibold">05:00</span>.
+            Økten utløper snart: automatisk utlogging om <span id="session-timeout-countdown" class="font-semibold">05:00</span>.
         </div>
         {% endif %}
 
@@ -351,10 +358,10 @@
                 }
                 const explicit = Number(yearIndicator.getAttribute('data-fiscal-year') || lockChip?.getAttribute('data-fiscal-year') || nowYear);
                 if (!Number.isFinite(explicit) || explicit < 1900 || explicit > 2200) {
-                    yearIndicator.textContent = `Fiscal year: ${nowYear}`;
+                    yearIndicator.textContent = `Regnskapsår: ${nowYear}`;
                     return nowYear;
                 }
-                yearIndicator.textContent = `Fiscal year: ${explicit}`;
+                yearIndicator.textContent = `Regnskapsår: ${explicit}`;
                 return explicit;
             };
 
@@ -365,16 +372,16 @@
                 lockChip.className = 'inline-flex items-center rounded-full border px-3 py-1 font-medium';
                 if (state === true) {
                     lockChip.classList.add('border-rose-200', 'bg-rose-50', 'text-rose-700');
-                    lockChip.textContent = `Lock status: locked (${termLabel})`;
+                    lockChip.textContent = `Låsestatus: låst (${termLabel})`;
                     return;
                 }
                 if (state === false) {
                     lockChip.classList.add('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
-                    lockChip.textContent = `Lock status: unlocked (${termLabel})`;
+                    lockChip.textContent = `Låsestatus: åpen (${termLabel})`;
                     return;
                 }
                 lockChip.classList.add('border-slate-200', 'bg-slate-50', 'text-slate-700');
-                lockChip.textContent = 'Lock status: unavailable';
+                lockChip.textContent = 'Låsestatus: utilgjengelig';
             };
 
             const parseTermRows = (doc) => {

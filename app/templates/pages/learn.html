@@ -1,0 +1,30 @@
+{% extends "layouts/base.html" %}
+{% import "components/card.html" as ui_card %}
+{% import "components/button.html" as ui_button %}
+
+{% block page_title %}Lær | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+
+{% block page_content %}
+<section class="{{ ui_card.classes() }}">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-slate-900">Lær regnskap i appen</h1>
+            <p class="mt-1 text-sm text-slate-600">Kort forklaring av begrepene du ser i skjema og rapporter.</p>
+        </div>
+        <a href="/learn/getting-started" class="{{ ui_button.classes('primary') }}">Kom i gang (ENK)</a>
+    </div>
+</section>
+
+<section class="{{ ui_card.classes() }}">
+    <h2 class="text-lg font-semibold text-slate-900">Begrepsliste</h2>
+    <div class="mt-4 grid gap-3 md:grid-cols-2">
+        {% for entry in glossary_entries %}
+        <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <h3 class="text-sm font-semibold text-slate-900">{{ entry.term }}</h3>
+            <p class="mt-1 text-sm text-slate-700">{{ entry.explanation }}</p>
+            <p class="mt-2 text-xs text-slate-600"><span class="font-semibold">Eksempel:</span> {{ entry.example }}</p>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

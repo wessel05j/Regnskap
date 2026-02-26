@@ -3,44 +3,44 @@
 {% import "components/button.html" as ui_button %}
 {% import "components/badge.html" as ui_badge %}
 
-{% block page_title %}Legacy expenses | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+{% block page_title %}Legacy-utgifter | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
 
 {% block page_content %}
 <section class="{{ ui_card.classes() }}">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-            <h1 class="text-2xl font-semibold text-slate-900">Legacy expenses</h1>
-            <p class="mt-1 text-sm text-slate-600">Read-only historical data from legacy table.</p>
+            <h1 class="text-2xl font-semibold text-slate-900">Legacy-utgifter</h1>
+            <p class="mt-1 text-sm text-slate-600">Historiske data fra legacy-tabell (kun lesing).</p>
         </div>
         {% if legacy_read_only %}
-        <span class="{{ ui_badge.classes('warning') }}">READ ONLY</span>
+        <span class="{{ ui_badge.classes('warning') }}">KUN LESING</span>
         {% endif %}
     </div>
 
     <form class="mt-6 grid gap-3 md:grid-cols-5" method="get" action="/expenses">
         <div>
-            <label for="expense-start" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Date from</label>
+            <label for="expense-start" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Fra dato</label>
             <input id="expense-start" type="date" name="start_date" value="{{ filters.start_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div>
-            <label for="expense-end" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Date to</label>
+            <label for="expense-end" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Til dato</label>
             <input id="expense-end" type="date" name="end_date" value="{{ filters.end_date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div>
-            <label for="expense-category" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Category</label>
+            <label for="expense-category" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Kategori</label>
             <select id="expense-category" name="category" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                <option value="">All</option>
+                <option value="">Alle</option>
                 {% for category in categories %}
                 <option value="{{ category }}" {% if filters.category == category %}selected{% endif %}>{{ category }}</option>
                 {% endfor %}
             </select>
         </div>
         <div>
-            <label for="expense-q" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Search</label>
-            <input id="expense-q" type="text" name="q" value="{{ filters.q }}" placeholder="Vendor / note" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            <label for="expense-q" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Søk</label>
+            <input id="expense-q" type="text" name="q" value="{{ filters.q }}" placeholder="Leverandør / notat" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
         </div>
         <div class="flex items-end">
-            <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Filtrerer">Apply filters</button>
+            <button type="submit" class="{{ ui_button.classes('secondary') }} w-full" data-loading-text="Filtrerer">Filtrer</button>
         </div>
     </form>
 </section>
@@ -50,13 +50,13 @@
         <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
-                    <th class="px-3 py-2">Date</th>
-                    <th class="px-3 py-2">Vendor</th>
-                    <th class="px-3 py-2">Category</th>
-                    <th class="px-3 py-2">Amount</th>
+                    <th class="px-3 py-2">Dato</th>
+                    <th class="px-3 py-2">Leverandør</th>
+                    <th class="px-3 py-2">Kategori</th>
+                    <th class="px-3 py-2">Beløp</th>
                     <th class="px-3 py-2">NOK</th>
-                    <th class="px-3 py-2">VAT</th>
-                    <th class="px-3 py-2">Attachment</th>
+                    <th class="px-3 py-2">MVA</th>
+                    <th class="px-3 py-2">Vedlegg</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -70,13 +70,13 @@
                         {% if row.amount_nok is not none %}
                         {{ "%.2f"|format(row.amount_nok) }}
                         {% else %}
-                        Missing
+                        Mangler
                         {% endif %}
                     </td>
                     <td class="whitespace-nowrap px-3 py-2 text-slate-700">{{ "%.2f"|format(row.vat_amount or 0) }}</td>
                     <td class="whitespace-nowrap px-3 py-2 text-slate-700">
                         {% if row.attachment_stored_name %}
-                        <a href="/attachments/expense/{{ row.id }}" class="text-indigo-600 hover:text-indigo-500 hover:underline">Download</a>
+                        <a href="/attachments/expense/{{ row.id }}" class="text-indigo-600 hover:text-indigo-500 hover:underline">Last ned</a>
                         {% else %}
                         -
                         {% endif %}
@@ -84,7 +84,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" class="px-3 py-10 text-center text-slate-500">No legacy expenses found.</td>
+                    <td colspan="7" class="px-3 py-10 text-center text-slate-500">Ingen legacy-utgifter funnet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
