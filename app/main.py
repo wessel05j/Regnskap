@@ -974,7 +974,12 @@ def run_legacy_migration(request: Request) -> RedirectResponse:
     require_admin(request)
     actor = current_actor(request)
     result = migrate_legacy.run_legacy_migration(actor=actor)
-    LOGGER.info("Legacy-migrering utfort av=%s resultat=%s", actor, result)
+    LOGGER.info(
+        "Legacy-migrering utfort av=%s incomes_migrert=%s expenses_migrert=%s",
+        actor,
+        result["incomes"]["migrated"],
+        result["expenses"]["migrated"],
+    )
     return RedirectResponse("/settings", status_code=303)
 
 
@@ -1058,7 +1063,7 @@ def import_legacy_confirm(
             actor=actor,
             import_settings=import_settings == "1",
         )
-        LOGGER.info("Legacy-import fullfort av=%s source=%s", actor, source)
+        LOGGER.info("Legacy-import fullfort av=%s import_settings=%s", actor, import_settings == "1")
         success_message = "Legacy-data ble importert og migrert trygt. Opprinnelig database er sikkerhetskopiert."
         context = legacy_import_page_context(
             request,

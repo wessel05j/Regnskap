@@ -87,13 +87,13 @@ class ExpenseInput(BaseTransactionInput):
 
 
 class SettingsInput(BaseModel):
-    company_name: str = Field(default="Wessel Media", min_length=2, max_length=150)
+    company_name: str = Field(default="Eksempel ENK", min_length=2, max_length=150)
     org_number: str | None = Field(default="")
     default_currency: Currency = Currency.NOK
     default_vat_rate: float = Field(default=25.0, ge=0, le=100)
     default_output_vat_rate: float = Field(default=0.0, ge=0, le=100)
     primary_income_model: str = Field(
-        default="Eksport av digitale tjenester (Google Ireland)",
+        default="Salg av digitale tjenester",
         min_length=3,
         max_length=200,
     )

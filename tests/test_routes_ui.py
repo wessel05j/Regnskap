@@ -11,7 +11,7 @@ from app.main import app
 
 
 def _login_admin(client: TestClient) -> None:
-    user_id = auth.create_user(username="admin", password="passord123", is_admin=True)
+    user_id = auth.create_user(username="admin", password="TestPassord123!", is_admin=True)
     token = auth.create_session(user_id=user_id)
     client.cookies.set("session_token", token)
 

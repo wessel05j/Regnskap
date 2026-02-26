@@ -16,7 +16,7 @@ GLOSSARY_ENTRIES: list[GlossaryEntry] = [
         key="voucher",
         term="Bilag (voucher)",
         explanation="Et bilag er en bokforingshendelse med en eller flere posteringer som henger sammen.",
-        example="Faktura fra Google og innbetaling på konto blir bokført i samme bilag.",
+        example="Faktura fra kunde og innbetaling på konto blir bokført i samme bilag.",
     ),
     GlossaryEntry(
         key="posting",
@@ -145,7 +145,7 @@ GETTING_STARTED_STEPS: list[dict[str, str]] = [
     },
     {
         "id": "c",
-        "title": "Før inntekt fra YouTube",
+        "title": "Før inntekt fra eksempeloppdrag",
         "body": "Opprett nytt bilag: debet 1920 Bank, kredit 3100/3000 inntekt. Legg inn mvaKode ved behov.",
     },
     {

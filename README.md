@@ -1,51 +1,122 @@
 # Mini Regnskap ENK
 
-Mini Regnskap ENK er et lokalt regnskapssystem for enkeltpersonforetak (ENK) i Norge. Applikasjonen kjører med FastAPI, Jinja og SQLite uten skykrav, og er laget for trygg, praktisk bokføring med bilag, MVA, periodelås og rapporter.
+A local-first bookkeeping system for Norwegian sole proprietorships (ENK), built with FastAPI, Jinja, and SQLite.
 
-## Prosjektets visjon
+Mini Regnskap ENK is designed for operators who want full control of accounting data on their own machine, without cloud lock-in.
 
-Prosjektet er bygget for å gi små entreprenører i Norge et enkelt, lokalt og forståelig verktøy for regnskap i hverdagen. Målet er at koden skal være fri å lese, forstå og kjøre lokalt (source available), samtidig som kommersiell videredistribusjon styres av lisensvilkår. Videre utvikling prioriterer bedre brukerflyt, tydeligere kontroller for bokføringskvalitet og tryggere backup-/gjenopprettingsrutiner.
+## Status and Scope
 
-## Hva systemet gjør
+- Current maturity: **not production ready**
+- Intended use: local evaluation, development, and controlled pilot usage
+- No guarantee of regulatory completeness for all accounting scenarios
+- No automatic Altinn submission or external filing integration
 
-- Bilagsføring med dobbel bokføring (`vouchers` + `voucher_lines`)
-- Vedleggshåndtering for bilag (PDF/JPG/JPEG/PNG)
-- MVA-grunnlag per termin og eksport (PDF, JSON, CSV)
-- Årsrapport, journal og kontospesifikasjon
-- Terminlås og korreksjonsflyt (reversering + korrigert bilag)
-- Lokal innlogging med hashed passord og sesjoner
-- Legacy-import fra eldre SQLite-database
+This repository is public for transparency and collaboration, but should not yet be treated as a finished production accounting product.
 
-## Lokal-first og ingen skyavhengigheter
+## Production Warning
 
-- Data lagres lokalt i prosjektmappen (`data/`)
-- Standard database er `data/app.db`
-- Rapporter, vedlegg og backuper lagres lokalt i underkataloger
-- Ingen automatisk synkronisering eller opplasting til skytjenester
+Do not deploy this system as a business-critical production accounting platform yet.
 
-## Teknologi
+- Security hardening is still in progress
+- Operational controls (monitoring, incident response, disaster recovery) are not complete
+- The current release process is aimed at development/testing, not regulated production operations
 
-- Python 3.11+
-- FastAPI + Jinja2
-- SQLite
-- ReportLab (PDF-generering)
-- Pytest (tester)
+## License (Source Available)
 
-## Kom i gang
+This project is **source available** under the **Business Source License 1.1 (BUSL-1.1)**.
 
-### Alternativ 1: Oppstartsskript (Windows)
+- You can inspect the code and run it locally under the license terms
+- Commercial redistribution and commercial service usage are restricted without separate permission
+- Change Date for this repository: **2029-02-26**
+- Full terms: [LICENSE](LICENSE)
+
+References:
+
+- BUSL text: <https://mariadb.com/bsl11/>
+- OSI (Open Source Definition): <https://opensource.org/osd>
+
+## Development Model
+
+Active development happens in the **`development`** branch.
+
+Recommended branch flow:
+
+- `development`: day-to-day feature work, refactoring, and integration
+- `main`: curated, stable snapshots for broader testing and public visibility
+
+## Why Local-First
+
+- Accounting records remain on your own device
+- No mandatory cloud dependency for normal operation
+- Offline-friendly workflow for daily bookkeeping
+- Easier data ownership, backup control, and audit traceability
+
+## No Cloud Storage
+
+Mini Regnskap ENK does **not** require cloud storage.
+
+By default, data is stored in local project folders:
+
+- Database: `data/app.db`
+- Attachments: `data/attachments/`
+- Generated reports: `data/reports/`
+- Backup archives: `data/backups/`
+
+## Core Capabilities
+
+- Voucher registration with double-entry accounting
+- VAT term aggregation and VAT exports (PDF/JSON/CSV)
+- Yearly report, journal report, and account specification
+- Period locking and correction flow (reversal + corrected voucher)
+- Local authentication (password hashing + session tokens)
+- Legacy import/migration from older SQLite format
+- Backup and backup verification CLI
+
+## Architecture Overview
+
+### Runtime Stack
+
+- Backend/API: FastAPI
+- UI rendering: Jinja templates
+- Storage: SQLite
+- Report generation: ReportLab
+- Test suite: Pytest
+
+### Project Structure
+
+- `app/main.py`: route layer, request handling, UI/API flow
+- `app/db.py`: database setup, migrations, data directory management
+- `app/ledger.py`: accounting engine and voucher logic
+- `app/vat_engine.py`: VAT calculations and VAT datasets
+- `app/pdf_reports.py`: PDF report generation
+- `app/auth.py`: users, password hashing, session handling
+- `app/legacy_import.py` and `app/migrate_legacy.py`: migration/import workflows
+- `app/backup_cli.py`: backup and verification commands
+- `tests/`: automated coverage for core accounting and routes
+
+### Data Flow (High Level)
+
+1. User submits voucher/report action in UI.
+2. FastAPI validates and routes request.
+3. Ledger/VAT modules process accounting logic.
+4. SQLite persists records and audit trail.
+5. Reports and exports are generated locally in `data/reports/`.
+
+## Quick Start
+
+### Option A (Windows helper script)
 
 ```powershell
 .\scripts\start.ps1
 ```
 
-eller:
+or:
 
 ```bat
 scripts\start.bat
 ```
 
-### Alternativ 2: Manuell oppstart
+### Option B (manual)
 
 ```powershell
 py -3.11 -m venv .venv
@@ -55,119 +126,96 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Åpne deretter `http://127.0.0.1:8000/bootstrap-admin` for å opprette første adminbruker.
+Then open `http://127.0.0.1:8000/bootstrap-admin` to create the first admin account.
 
-## Første gangs bruk
+## Security and Local Data Control
 
-1. Opprett adminbruker på `/bootstrap-admin`.
-2. Logg inn på `/login`.
-3. Sett firmaopplysninger under `Innstillinger`.
-4. Opprett bilag under `Bilag`.
-5. Generer rapporter under `Rapporter`.
-6. Lås termin når perioden er ferdig avstemt.
+Security fundamentals in this project:
 
-## Demo-data
+- Local storage by default; no cloud transport required
+- Passwords are stored as hashes, never plaintext
+- Session-based authentication
+- Audit log table for traceability
+- Backup and backup verification tooling
 
-Det finnes en enkel seeder for demo/testing:
+Operational recommendations:
 
-```powershell
-$env:PYTHONPATH='.'
-python -m app.seed_demo
-```
+- Keep machine-level disk encryption enabled
+- Restrict local OS account access
+- Run regular encrypted backups
+- Test restore procedures in a separate environment
+- Never commit real accounting data or secrets to Git
 
-Se [DEMO_DATA.md](DEMO_DATA.md) for anbefalt trygg arbeidsflyt uten ekte data.
+See also:
 
-## Backup og gjenoppretting
+- [SECURITY.md](SECURITY.md)
+- [SECURITY_AUDIT_REPORT.md](SECURITY_AUDIT_REPORT.md)
 
-Lag backup:
+### Pre-commit Guard
 
-```powershell
-$env:PYTHONPATH='.'
-python -m app.backup_cli backup
-```
+This repository includes a lightweight pre-commit hook at `.githooks/pre-commit` to block commits that include:
 
-Verifiser backup:
+- `.db`/`.sqlite` artifacts
+- `.env` files
+- `data/` folder contents (except tracked `.gitkeep` placeholders)
+- high-confidence secret patterns in staged diff lines
 
-```powershell
-$env:PYTHONPATH='.'
-python -m app.backup_cli verify --archive data/backups/backup_YYYYMMDD_HHMMSS.zip
-```
-
-Anbefaling:
-
-- Ta backup før migrering, større endringer og før terminlås
-- Oppbevar minst én kryptert kopi utenfor arbeidsmaskinen
-- Test gjenoppretting jevnlig i et separat testmiljø
-
-## Arkitektur (kort oversikt)
-
-- `app/main.py`: HTTP-ruter, sideflyt og validering av innsendt data
-- `app/db.py`: databaseoppsett, katalogstruktur og migreringer
-- `app/ledger.py`: kjernelogikk for bokføring, bilag og korreksjoner
-- `app/vat_engine.py`: MVA-beregninger og MVA-datasett
-- `app/pdf_reports.py`: PDF-rapporter
-- `app/auth.py`: brukere, passordhashing og sesjoner
-- `app/legacy_import.py` + `app/migrate_legacy.py`: import/migrering fra gammel modell
-- `app/backup_cli.py`: CLI for backup og verifisering
-- `data/`: lokal database, vedlegg, rapporter og backupfiler
-- `tests/`: automatiske tester for ruter, ledger og MVA
-
-## Test
+Install once per clone:
 
 ```powershell
-$env:PYTHONPATH='.'
-pytest -q
+.\scripts\install-hooks.ps1
 ```
 
-## Sikkerhet
+Or manually:
 
-Hva som lagres lokalt:
+```powershell
+git config core.hooksPath .githooks
+```
 
-- Bokføringsdata (bilag, linjer, perioder, innstillinger)
-- Brukerkontoer med passordhash (ikke klartekstpassord)
-- Vedlegg og genererte rapporter
-- Revisjonsspor i databasen (`audit_log`)
+On macOS/Linux, ensure execute permission:
 
-Lokal-first håndtering:
+```bash
+chmod +x .githooks/pre-commit
+```
 
-- Ingen skykobling er nødvendig for normal bruk
-- Data ligger i lokale filer under `data/`
-- Tilgangsstyring skjer via lokal innlogging og sesjonscookie
+Verification:
 
-Backup-anbefaling:
+```powershell
+git config --get core.hooksPath
+```
 
-- Bruk innebygget backup-CLI
-- Krypter backup ved ekstern lagring
-- Behold flere historiske backupversjoner
+Expected output:
 
-Se [SECURITY.md](SECURITY.md) og [SECURITY_AUDIT_REPORT.md](SECURITY_AUDIT_REPORT.md) for mer detaljer.
+```text
+.githooks
+```
 
-## Lisens
+## Roadmap
 
-Prosjektet er **source available** under **Business Source License 1.1 (BUSL-1.1)**. Dette er ikke en OSI-godkjent open source-lisens.
+Planned priorities:
 
-Lisensparametere for dette repoet:
+- Hardening and security review for production-readiness
+- Improved bookkeeping validation and guardrails
+- Better error handling and operator diagnostics
+- Expanded test coverage for edge cases in ledger/VAT flows
+- Improved import/export UX for accountants and auditors
+- Release packaging and upgrade/migration tooling
 
-- Change Date: `2029-02-26`
-- Change License etter Change Date: `GPL-3.0-or-later`
+## Screenshots (Placeholders)
 
-Tillatt:
+- `[Placeholder] Dashboard`: `docs/screenshots/dashboard.png`
+- `[Placeholder] New Voucher Form`: `docs/screenshots/voucher-form.png`
+- `[Placeholder] VAT Report`: `docs/screenshots/vat-report.png`
+- `[Placeholder] Settings`: `docs/screenshots/settings.png`
+- `[Placeholder] Legacy Import`: `docs/screenshots/legacy-import.png`
 
-- Lese og inspisere kildekoden
-- Kjøres lokalt i henhold til lisensvilkårene i `LICENSE`
-- Intern bruk innenfor rammene av `Additional Use Grant`
+Use anonymized demo data only when generating screenshots.
 
-Ikke tillatt uten separat avtale med rettighetshaver:
+## Demo Data and Contribution
 
-- Kommersiell videresalg eller redistribusjon av løsningen
-- Tilby løsningen som tjeneste for tredjeparter utover lisensens grenser
+- Demo data guide: [DEMO_DATA.md](DEMO_DATA.md)
+- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-Viktige referanser:
+## Transparency Note
 
-- Offisiell BUSL-tekst: <https://mariadb.com/bsl11/>
-- Open Source Initiative (OSD): <https://opensource.org/osd>
-- Gjeldende prosjektlisens: [LICENSE](LICENSE)
-
-## Bidra
-
-Se [CONTRIBUTING.md](CONTRIBUTING.md) for utvikleroppsett, testkrav og kodestil.
+This repository is published to share implementation details and enable responsible collaboration. It is source available, local-first, and security-conscious, but still under active development and not yet production ready.

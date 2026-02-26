@@ -58,3 +58,42 @@ pytest -q
 - Beskriv forventet og faktisk resultat.
 - Legg ved trinn for reproduksjon.
 - Del aldri ekte regnskapsdata, hemmeligheter eller personopplysninger.
+
+## Pre-commit-beskyttelse
+
+Repoet har en lett pre-commit-hook i `.githooks/pre-commit` som stopper commit når staged endringer inneholder:
+
+- databasefiler (`.db`, `.sqlite`, `.sqlite3`)
+- `.env`-filer
+- filer under `data/` (unntatt eksisterende `.gitkeep`)
+- typiske hemmelighetsmønstre i nye linjer
+
+Installer hook-oppsett én gang per klone:
+
+```powershell
+.\scripts\install-hooks.ps1
+```
+
+Alternativt manuelt:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+For macOS/Linux:
+
+```bash
+chmod +x .githooks/pre-commit
+```
+
+Verifiser at hook-path er satt:
+
+```powershell
+git config --get core.hooksPath
+```
+
+Forventet output:
+
+```text
+.githooks
+```
