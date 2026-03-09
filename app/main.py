@@ -42,8 +42,15 @@ def setup_logging() -> None:
 @app.on_event("startup")
 def startup() -> None:
     setup_logging()
+    startup_backup_path = None
+    try:
+        startup_backup_path = db.create_startup_backup()
+    except Exception:
+        LOGGER.exception("Oppstarts-backup feilet")
     db.init_db()
     LOGGER.info("Systemet startet")
+    if startup_backup_path:
+        LOGGER.info("Oppstarts-backup opprettet path=%s", startup_backup_path)
 
 
 @app.middleware("http")

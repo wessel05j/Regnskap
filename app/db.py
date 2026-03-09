@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sqlite3
 from collections.abc import Callable
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,6 +15,21 @@ BACKUPS_DIR = DATA_DIR / "backups"
 LOG_FILE = DATA_DIR / "app.log"
 
 _DB_PATH = Path(os.getenv("REGNSKAP_DB_PATH", DATA_DIR / "app.db"))
+
+
+def _env_int(name: str, default: int, *, minimum: int = 0) -> int:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        parsed = int(raw)
+    except ValueError:
+        return default
+    return max(minimum, parsed)
+
+
+STARTUP_BACKUP_KEEP = _env_int("REGNSKAP_STARTUP_BACKUP_KEEP", 30, minimum=1)
+STARTUP_BACKUP_MIN_INTERVAL_MINUTES = _env_int("REGNSKAP_STARTUP_BACKUP_MIN_INTERVAL_MINUTES", 30, minimum=0)
 
 
 def configure_database(path: str | Path) -> None:
@@ -30,6 +46,88 @@ def ensure_data_dirs() -> None:
     ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM sqlite_master
+        WHERE type = 'table' AND name = ?
+        LIMIT 1
+        """,
+        (table_name,),
+    ).fetchone()
+    return row is not None
+
+
+def _count_rows_if_exists(conn: sqlite3.Connection, table_name: str) -> int:
+    if not _table_exists(conn, table_name):
+        return 0
+    row = conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+    if row is None:
+        return 0
+    return int(row[0])
+
+
+def _has_transaction_data(db_path: Path) -> bool:
+    if not db_path.exists():
+        return False
+    conn = sqlite3.connect(db_path)
+    try:
+        vouchers = _count_rows_if_exists(conn, "vouchers")
+        incomes = _count_rows_if_exists(conn, "incomes")
+        expenses = _count_rows_if_exists(conn, "expenses")
+        return (vouchers + incomes + expenses) > 0
+    finally:
+        conn.close()
+
+
+def _startup_backup_files() -> list[Path]:
+    ensure_data_dirs()
+    candidates = [path for path in BACKUPS_DIR.glob("startup_*.db") if path.is_file()]
+    return sorted(candidates, key=lambda path: path.stat().st_mtime, reverse=True)
+
+
+def _rotate_startup_backups(keep: int) -> None:
+    files = _startup_backup_files()
+    for stale in files[keep:]:
+        try:
+            stale.unlink()
+        except OSError:
+            continue
+
+
+def _startup_backup_target_path() -> Path:
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    candidate = BACKUPS_DIR / f"startup_{stamp}.db"
+    if not candidate.exists():
+        return candidate
+    suffix = 1
+    while True:
+        candidate = BACKUPS_DIR / f"startup_{stamp}_{suffix}.db"
+        if not candidate.exists():
+            return candidate
+        suffix += 1
+
+
+def create_startup_backup() -> Path | None:
+    ensure_data_dirs()
+    db_path = get_db_path()
+    if not _has_transaction_data(db_path):
+        return None
+
+    files = _startup_backup_files()
+    if files and STARTUP_BACKUP_MIN_INTERVAL_MINUTES > 0:
+        latest = files[0]
+        latest_age = datetime.now() - datetime.fromtimestamp(latest.stat().st_mtime)
+        if latest_age < timedelta(minutes=STARTUP_BACKUP_MIN_INTERVAL_MINUTES):
+            return None
+
+    target = _startup_backup_target_path()
+    shutil.copy2(db_path, target)
+    _rotate_startup_backups(STARTUP_BACKUP_KEEP)
+    return target
 
 
 def get_connection() -> sqlite3.Connection:

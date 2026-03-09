@@ -61,6 +61,7 @@ By default, data is stored in local project folders:
 - Attachments: `data/attachments/`
 - Generated reports: `data/reports/`
 - Backup archives: `data/backups/`
+- Automatic startup snapshots: `data/backups/startup_*.db` (when transactional data exists)
 
 ## Core Capabilities
 
@@ -143,6 +144,7 @@ Operational recommendations:
 - Keep machine-level disk encryption enabled
 - Restrict local OS account access
 - Run regular encrypted backups
+- Keep automatic startup snapshots enabled (configure with `REGNSKAP_STARTUP_BACKUP_KEEP` and `REGNSKAP_STARTUP_BACKUP_MIN_INTERVAL_MINUTES`)
 - Test restore procedures in a separate environment
 - Never commit real accounting data or secrets to Git
 
