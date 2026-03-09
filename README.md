@@ -149,7 +149,6 @@ Operational recommendations:
 See also:
 
 - [SECURITY.md](SECURITY.md)
-- [SECURITY_AUDIT_REPORT.md](SECURITY_AUDIT_REPORT.md)
 
 ### Pre-commit Guard
 
