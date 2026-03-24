@@ -25,7 +25,6 @@ app = FastAPI(title="Mini Regnskap ENK")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 LOGGER = logging.getLogger("regnskap")
-PUBLIC_PATHS = {"/login", "/bootstrap-admin"}
 MAX_LEGACY_DB_UPLOAD_SIZE = 200 * 1024 * 1024
 LEGACY_UPLOADS_DIR = db.BACKUPS_DIR / "legacy_uploads"
 
@@ -59,21 +58,10 @@ async def enforce_authentication(request: Request, call_next):  # type: ignore[o
     if path.startswith("/static"):
         return await call_next(request)
 
-    has_users = auth.has_any_users()
-    if not has_users and path != "/bootstrap-admin":
-        return RedirectResponse("/bootstrap-admin", status_code=303)
-
-    if path in PUBLIC_PATHS:
-        return await call_next(request)
-
     token = request.cookies.get("session_token")
     user = auth.get_user_by_session_token(token)
-    if user is None:
-        if request.method.upper() == "GET":
-            return RedirectResponse("/login", status_code=303)
-        return JSONResponse(status_code=401, content={"detail": "Ikke autentisert"})
-
-    request.state.user = user
+    # Login is optional: run the app with a permissive default actor when no session exists.
+    request.state.user = user or {"username": "system", "is_admin": 1}
     return await call_next(request)
 
 
@@ -287,7 +275,7 @@ def logout(request: Request) -> RedirectResponse:
     token = request.cookies.get("session_token")
     if token:
         auth.clear_session(token)
-    response = RedirectResponse("/login", status_code=303)
+    response = RedirectResponse("/", status_code=303)
     response.delete_cookie("session_token")
     return response
 

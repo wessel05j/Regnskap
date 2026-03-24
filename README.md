@@ -127,7 +127,9 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Then open `http://127.0.0.1:8000/bootstrap-admin` to create the first admin account.
+Then open `http://127.0.0.1:8000/`.
+
+Login is optional by default. The system runs without requiring a session and uses an internal system actor when no user is logged in.
 
 ## Security and Local Data Control
 
