@@ -56,6 +56,7 @@
 
             <nav class="space-y-1" aria-label="Hovedmeny">
                 <a href="/" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'dashboard' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Oversikt</a>
+                <a href="/register" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'register' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Registrer</a>
                 <a href="/vouchers" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'vouchers' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Bilag</a>
                 <a href="/reports" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'reports' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">Rapporter</a>
                 <a href="/reports?tab=vat" class="{{ 'bg-indigo-50 text-indigo-700' if active_nav == 'reports_vat' else 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }} flex items-center rounded-lg px-3 py-2 text-sm font-medium transition">MVA</a>

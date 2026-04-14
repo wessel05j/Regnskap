@@ -37,6 +37,9 @@ def test_navigation_routes_accessible_after_login() -> None:
         _login_admin(client)
         routes = [
             "/",
+            "/register",
+            "/register/income",
+            "/register/expense",
             "/vouchers",
             "/reports",
             "/reports?tab=vat",
@@ -126,3 +129,66 @@ def test_correction_flow_route_creates_reversal_and_corrected_voucher() -> None:
 
         assert len(rows) == 2
         assert {str(row["voucher_type"]) for row in rows} == {"reversal", "correction"}
+
+
+def test_simple_expense_route_creates_voucher() -> None:
+    with TestClient(app) as client:
+        _login_admin(client)
+
+        response = client.post(
+            "/register/expense",
+            data={
+                "date": "2026-04-07",
+                "vendor": "Eleven Labs Inc.",
+                "description": "Creator-abonnement",
+                "total_amount_nok": "110,18",
+                "vat_amount_nok": "",
+                "expense_account": "5000",
+                "settlement": "paid_now",
+            },
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        voucher_id = int(response.headers["location"].rsplit("/", 1)[-1])
+        voucher = ledger.get_voucher(voucher_id)
+        assert voucher is not None
+        assert voucher["counterparty_name"] == "Eleven Labs Inc."
+        assert voucher["posting_date"] == "2026-04-07"
+        assert int(voucher["total_nok"]) == 110
+        assert "avrundet fra 110,18 NOK til 110 NOK" in str(voucher["description"])
+
+        lines = {str(line["account_no"]): line for line in voucher["lines"]}
+        assert int(lines["5000"]["debit_nok"]) == 110
+        assert int(lines["1920"]["credit_nok"]) == 110
+
+
+def test_simple_income_route_creates_vat_split() -> None:
+    with TestClient(app) as client:
+        _login_admin(client)
+
+        response = client.post(
+            "/register/income",
+            data={
+                "date": "2026-04-08",
+                "customer": "Kunde AS",
+                "description": "Videoprosjekt",
+                "total_amount_nok": "1250",
+                "income_vat": "vat25",
+                "settlement": "paid_now",
+            },
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        voucher_id = int(response.headers["location"].rsplit("/", 1)[-1])
+        voucher = ledger.get_voucher(voucher_id)
+        assert voucher is not None
+        assert voucher["counterparty_name"] == "Kunde AS"
+        assert int(voucher["total_nok"]) == 1250
+
+        lines = {str(line["account_no"]): line for line in voucher["lines"]}
+        assert int(lines["1920"]["debit_nok"]) == 1250
+        assert int(lines["3000"]["credit_nok"]) == 1000
+        assert int(lines["2710"]["credit_nok"]) == 250
+        assert lines["3000"]["vat_mva_code"] == "3"

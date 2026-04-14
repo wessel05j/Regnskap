@@ -1,0 +1,55 @@
+{% extends "layouts/base.html" %}
+{% import "components/card.html" as ui_card %}
+{% import "components/button.html" as ui_button %}
+
+{% block page_title %}Registrer | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+
+{% block page_content %}
+<section class="{{ ui_card.classes() }}">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-slate-900">Registrer noe nytt</h1>
+            <p class="mt-1 max-w-3xl text-sm text-slate-600">Bruk disse skjemaene når du bare vil si hva som kom inn eller gikk ut. Systemet lager bilaget i bakgrunnen, så du slipper å fylle inn debet, kredit og MVA-koder manuelt.</p>
+        </div>
+        <a href="/vouchers/new" class="{{ ui_button.classes('secondary') }}">Avansert bilag</a>
+    </div>
+</section>
+
+<section class="grid gap-6 xl:grid-cols-3">
+    <article class="{{ ui_card.classes('space-y-4 xl:col-span-1') }}">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600">Inntekt</p>
+            <h2 class="mt-2 text-lg font-semibold text-slate-900">Jeg har fått penger inn</h2>
+            <p class="mt-1 text-sm text-slate-600">Passer når en kunde har betalt, eller når du vil føre et salg som skal betales senere.</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            Du fyller inn dato, hvem som betalte, hva betalingen gjelder og beløpet. Systemet fører bank eller kundefordring mot riktig inntektskonto.
+        </div>
+        <a href="/register/income" class="{{ ui_button.classes('primary') }} w-full">Registrer inntekt</a>
+    </article>
+
+    <article class="{{ ui_card.classes('space-y-4 xl:col-span-1') }}">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-indigo-600">Utgift</p>
+            <h2 class="mt-2 text-lg font-semibold text-slate-900">Jeg har betalt noe</h2>
+            <p class="mt-1 text-sm text-slate-600">Passer for abonnement, programvare, småkjøp og andre vanlige kostnader.</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            Du fyller inn leverandør, hva du kjøpte, totalbeløp og eventuell MVA. Systemet fører kostnad, MVA og bank eller leverandørgjeld for deg.
+        </div>
+        <a href="/register/expense" class="{{ ui_button.classes('primary') }} w-full">Registrer utgift</a>
+    </article>
+
+    <article class="{{ ui_card.classes('space-y-4 xl:col-span-1') }}">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Når dette ikke passer</p>
+            <h2 class="mt-2 text-lg font-semibold text-slate-900">Bruk avansert bilag</h2>
+            <p class="mt-1 text-sm text-slate-600">Velg dette hvis du trenger flere linjer, spesialkontoer eller mer komplisert MVA.</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            Den avanserte visningen er fortsatt tilgjengelig. Forskjellen er bare at vanlige tilfeller nå har en enklere inngang.
+        </div>
+        <a href="/vouchers/new" class="{{ ui_button.classes('secondary') }} w-full">Åpne avansert bilag</a>
+    </article>
+</section>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends "layouts/base.html" %}
+{% import "components/card.html" as ui_card %}
+{% import "components/button.html" as ui_button %}
+
+{% block page_title %}Registrer inntekt | {{ settings.company_name if settings is defined else 'Mini Regnskap' }}{% endblock %}
+
+{% block page_content %}
+<section class="{{ ui_card.classes() }}">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-slate-900">Registrer inntekt</h1>
+            <p class="mt-1 max-w-3xl text-sm text-slate-600">Fyll inn vanlig språk: hvem som betalte, hva betalingen gjelder og hvor mye som kom inn. Systemet lager bilaget for deg.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="/register" class="{{ ui_button.classes('secondary') }}">Tilbake</a>
+            <a href="/vouchers/new" class="{{ ui_button.classes('secondary') }}">Avansert bilag</a>
+        </div>
+    </div>
+    <div class="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+        Denne enkle visningen lagrer beløp i hele kroner. Hvis du skriver inn øre, blir beløpet avrundet og dette blir skrevet inn i beskrivelsen.
+    </div>
+    {% if errors.ledger %}
+    <div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ errors.ledger }}</div>
+    {% endif %}
+</section>
+
+<form method="post" enctype="multipart/form-data" class="space-y-6">
+    <section class="{{ ui_card.classes() }}">
+        <div class="grid gap-4 md:grid-cols-2">
+            <div>
+                <label for="income-date" class="block text-sm font-medium text-slate-700">Dato</label>
+                <input id="income-date" type="date" name="date" value="{{ form_data.date }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" required>
+                {% if errors.date %}<p class="mt-1 text-sm text-rose-700">{{ errors.date }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="income-customer" class="block text-sm font-medium text-slate-700">Hvem betalte deg?</label>
+                <input id="income-customer" type="text" name="customer" value="{{ form_data.customer }}" placeholder="For eksempel Kunde AS" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" required>
+                {% if errors.customer %}<p class="mt-1 text-sm text-rose-700">{{ errors.customer }}</p>{% endif %}
+            </div>
+            <div class="md:col-span-2">
+                <label for="income-description" class="block text-sm font-medium text-slate-700">Hva gjelder betalingen?</label>
+                <input id="income-description" type="text" name="description" value="{{ form_data.description }}" placeholder="For eksempel klipping av video eller sponsorinntekt" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" required>
+                {% if errors.description %}<p class="mt-1 text-sm text-rose-700">{{ errors.description }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="income-total" class="block text-sm font-medium text-slate-700">Beløp i kroner</label>
+                <input id="income-total" type="text" name="total_amount_nok" value="{{ form_data.total_amount_nok }}" placeholder="For eksempel 1250 eller 1250,50" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600" required>
+                <p id="income-total-help" class="mt-1 text-xs text-slate-500">Skriv totalbeløpet som kunden betaler. Ved 25 % MVA deler systemet beløpet i salg og MVA.</p>
+                {% if errors.total_amount_nok %}<p class="mt-1 text-sm text-rose-700">{{ errors.total_amount_nok }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="income-vat" class="block text-sm font-medium text-slate-700">MVA på salget</label>
+                <select id="income-vat" name="income_vat" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                    {% for option in simple_income_vat_options %}
+                    <option value="{{ option.value }}" {% if form_data.income_vat == option.value %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+                {% if errors.income_vat %}<p class="mt-1 text-sm text-rose-700">{{ errors.income_vat }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="income-settlement" class="block text-sm font-medium text-slate-700">Har du fått pengene?</label>
+                <select id="income-settlement" name="settlement" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                    {% for option in simple_income_settlements %}
+                    <option value="{{ option.value }}" {% if form_data.settlement == option.value %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+                {% if errors.settlement %}<p class="mt-1 text-sm text-rose-700">{{ errors.settlement }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="income-attachment" class="block text-sm font-medium text-slate-700">Vedlegg</label>
+                <input id="income-attachment" type="file" name="attachment" accept=".pdf,.jpg,.jpeg,.png" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                <p class="mt-1 text-xs text-slate-500">Legg ved faktura, skjermbilde eller annen dokumentasjon hvis du har det.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="{{ ui_card.classes() }}">
+        <h2 class="text-lg font-semibold text-slate-900">Hva systemet gjør</h2>
+        <div class="mt-3 space-y-2 text-sm text-slate-700">
+            <p>Systemet fører inntekten mot bank hvis pengene er kommet inn, eller mot kundefordring hvis kunden ikke har betalt ennå.</p>
+            <p>Hvis du velger 25 % norsk MVA, prøver systemet å dele totalbeløpet i salg og MVA automatisk. Hvis det ikke går opp i hele kroner, får du en tydelig beskjed og kan bruke avansert bilag.</p>
+        </div>
+    </section>
+
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <a href="/register" class="{{ ui_button.classes('secondary') }}">Avbryt</a>
+        <button type="submit" class="{{ ui_button.classes('primary') }}" data-loading-text="Lagrer inntekt">Lagre inntekt</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    (() => {
+        const vatSelect = document.getElementById('income-vat');
+        const help = document.getElementById('income-total-help');
+        if (!vatSelect || !help) {
+            return;
+        }
+        const syncHelp = () => {
+            if (vatSelect.value === 'vat25') {
+                help.textContent = 'Skriv totalbeløpet kunden betaler, inkludert MVA. Systemet deler det i salg og MVA når dette går opp i hele kroner.';
+                return;
+            }
+            help.textContent = 'Skriv totalbeløpet som kunden betaler. Ved 25 % MVA deler systemet beløpet i salg og MVA.';
+        };
+        vatSelect.addEventListener('change', syncHelp);
+        syncHelp();
+    })();
+</script>
+{% endblock %}

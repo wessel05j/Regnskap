@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import mimetypes
+from decimal import Decimal, InvalidOperation, ROUND_FLOOR, ROUND_HALF_UP
 from datetime import date
 from pathlib import Path
 from uuid import uuid4
@@ -27,6 +28,33 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 LOGGER = logging.getLogger("regnskap")
 MAX_LEGACY_DB_UPLOAD_SIZE = 200 * 1024 * 1024
 LEGACY_UPLOADS_DIR = db.BACKUPS_DIR / "legacy_uploads"
+
+SIMPLE_EXPENSE_ACCOUNT_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "5000", "label": "Vanlig driftskostnad", "hint": "programvare, abonnement, småkjøp"},
+    {"value": "4000", "label": "Varekjøp", "hint": "varer du kjøper inn for virksomheten"},
+    {"value": "7790", "label": "Annen kostnad", "hint": "brukes når de to andre ikke passer"},
+)
+SIMPLE_EXPENSE_ACCOUNT_LABELS = {item["value"]: item["label"] for item in SIMPLE_EXPENSE_ACCOUNT_OPTIONS}
+SIMPLE_EXPENSE_SETTLEMENT_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "paid_now", "label": "Jeg har allerede betalt", "hint": "kort eller bankkonto"},
+    {"value": "pay_later", "label": "Jeg skal betale senere", "hint": "føres som leverandørgjeld"},
+)
+SIMPLE_EXPENSE_SETTLEMENT_ACCOUNTS = {
+    "paid_now": "1920",
+    "pay_later": "2400",
+}
+SIMPLE_INCOME_SETTLEMENT_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "paid_now", "label": "Pengene er kommet inn", "hint": "bank eller kortoppgjør"},
+    {"value": "invoice", "label": "Kunden skal betale senere", "hint": "føres som kundefordring"},
+)
+SIMPLE_INCOME_SETTLEMENT_ACCOUNTS = {
+    "paid_now": "1920",
+    "invoice": "1500",
+}
+SIMPLE_INCOME_VAT_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "none", "label": "Ingen MVA / usikker", "hint": "brukes for avgiftsfri eller usikker inntekt"},
+    {"value": "vat25", "label": "25 % norsk MVA", "hint": "systemet deler totalen i salg og MVA"},
+)
 
 
 def setup_logging() -> None:
@@ -122,6 +150,97 @@ def base_context(request: Request, active_nav: str) -> dict:
         "learn_tooltips": learn.TOOLTIPS,
         "current_user": getattr(request.state, "user", None),
     }
+
+
+def simple_registration_context(request: Request, *, active_simple_form: str = "") -> dict:
+    context = base_context(request, active_nav="register")
+    context.update(
+        {
+            "active_simple_form": active_simple_form,
+            "simple_expense_accounts": SIMPLE_EXPENSE_ACCOUNT_OPTIONS,
+            "simple_expense_settlements": SIMPLE_EXPENSE_SETTLEMENT_OPTIONS,
+            "simple_income_settlements": SIMPLE_INCOME_SETTLEMENT_OPTIONS,
+            "simple_income_vat_options": SIMPLE_INCOME_VAT_OPTIONS,
+        }
+    )
+    return context
+
+
+def _normalize_nok_text(raw_value: str | None) -> str:
+    return str(raw_value or "").strip().replace("\xa0", "").replace(" ", "").replace(",", ".")
+
+
+def _parse_nok_amount(raw_value: str | None, field_label: str) -> tuple[Decimal, int]:
+    text = _normalize_nok_text(raw_value)
+    if not text:
+        raise ValueError(f"{field_label} mangler.")
+    try:
+        amount = Decimal(text)
+    except InvalidOperation as exc:
+        raise ValueError(f"{field_label} må være et tall.") from exc
+    if amount <= 0:
+        raise ValueError(f"{field_label} må være større enn 0.")
+    rounded = int(amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return amount, rounded
+
+
+def _parse_optional_nok_amount(raw_value: str | None, field_label: str) -> tuple[Decimal | None, int | None]:
+    text = _normalize_nok_text(raw_value)
+    if not text:
+        return None, None
+    amount, rounded = _parse_nok_amount(text, field_label)
+    return amount, rounded
+
+
+def _format_decimal_nok(amount: Decimal) -> str:
+    return f"{amount:.2f}".replace(".", ",")
+
+
+def _rounding_note(prefix: str, original_amount: Decimal | None, rounded_amount: int | None) -> str | None:
+    if original_amount is None or rounded_amount is None:
+        return None
+    if original_amount == Decimal(rounded_amount):
+        return None
+    return (
+        f"{prefix} avrundet fra {_format_decimal_nok(original_amount)} NOK til "
+        f"{rounded_amount} NOK fordi denne versjonen lagrer hele kroner."
+    )
+
+
+def _combine_notes(*notes: str | None) -> str:
+    return " | ".join(note for note in notes if note)
+
+
+def _append_note(base_text: str, note: str | None) -> str:
+    base = base_text.strip()
+    if note and base:
+        return f"{base} | {note}"
+    if note:
+        return note
+    return base
+
+
+def _split_total_with_vat(total_nok: int, rate_percent: int) -> tuple[int, int] | None:
+    rate_decimal = vat_engine.to_decimal_rate(rate_percent)
+    if rate_decimal is None or rate_decimal <= 0:
+        return None
+    normalized_rate = Decimal(str(rate_decimal))
+    estimate = int(Decimal(total_nok) / (Decimal("1") + normalized_rate))
+    window = max(10, int((Decimal("1") / normalized_rate).to_integral_value(rounding=ROUND_HALF_UP)) + 4)
+
+    def _vat_amount(base_nok: int) -> int:
+        return int((Decimal(base_nok) * normalized_rate).to_integral_value(rounding=ROUND_FLOOR))
+
+    for base_nok in range(max(1, estimate - window), estimate + window + 1):
+        vat_nok = _vat_amount(base_nok)
+        if base_nok + vat_nok == total_nok:
+            return base_nok, vat_nok
+
+    for base_nok in range(1, total_nok + 1):
+        vat_nok = _vat_amount(base_nok)
+        if base_nok + vat_nok == total_nok:
+            return base_nok, vat_nok
+    return None
 
 
 async def save_bilag(upload: UploadFile | None, actor: str) -> int | None:
@@ -335,6 +454,308 @@ def getting_started_page(request: Request) -> HTMLResponse:
         }
     )
     return templates.TemplateResponse("getting_started.html", context)
+
+
+@app.get("/register", response_class=HTMLResponse)
+def register_page(request: Request) -> HTMLResponse:
+    context = simple_registration_context(request)
+    return templates.TemplateResponse("pages/register.html", context)
+
+
+def _simple_income_defaults() -> dict[str, str]:
+    return {
+        "date": today_iso(),
+        "customer": "",
+        "description": "",
+        "total_amount_nok": "",
+        "income_vat": "none",
+        "settlement": "paid_now",
+    }
+
+
+def _simple_expense_defaults() -> dict[str, str]:
+    return {
+        "date": today_iso(),
+        "vendor": "",
+        "description": "",
+        "total_amount_nok": "",
+        "vat_amount_nok": "",
+        "expense_account": "5000",
+        "settlement": "paid_now",
+    }
+
+
+def _render_simple_income_form(
+    request: Request,
+    *,
+    form_data: dict[str, str],
+    errors: dict[str, str],
+    status_code: int = 200,
+) -> HTMLResponse:
+    context = simple_registration_context(request, active_simple_form="income")
+    context.update({"form_data": form_data, "errors": errors})
+    return templates.TemplateResponse("pages/simple_income_form.html", context, status_code=status_code)
+
+
+def _render_simple_expense_form(
+    request: Request,
+    *,
+    form_data: dict[str, str],
+    errors: dict[str, str],
+    status_code: int = 200,
+) -> HTMLResponse:
+    context = simple_registration_context(request, active_simple_form="expense")
+    context.update({"form_data": form_data, "errors": errors})
+    return templates.TemplateResponse("pages/simple_expense_form.html", context, status_code=status_code)
+
+
+@app.get("/register/income", response_class=HTMLResponse)
+def register_income_page(request: Request) -> HTMLResponse:
+    return _render_simple_income_form(request, form_data=_simple_income_defaults(), errors={})
+
+
+@app.post("/register/income", response_class=HTMLResponse)
+async def register_income_submit(
+    request: Request,
+    entry_date: str = Form(..., alias="date"),
+    customer: str = Form(...),
+    description: str = Form(...),
+    total_amount_nok: str = Form(...),
+    income_vat: str = Form("none"),
+    settlement: str = Form("paid_now"),
+    attachment: UploadFile | None = File(default=None),
+) -> HTMLResponse:
+    form_data = {
+        "date": entry_date,
+        "customer": customer,
+        "description": description,
+        "total_amount_nok": total_amount_nok,
+        "income_vat": income_vat,
+        "settlement": settlement,
+    }
+    errors: dict[str, str] = {}
+    actor = current_actor(request)
+
+    try:
+        date.fromisoformat(entry_date)
+    except ValueError:
+        errors["date"] = "Dato må være på formatet ÅÅÅÅ-MM-DD."
+
+    if not customer.strip():
+        errors["customer"] = "Skriv hvem som betalte deg."
+    if not description.strip():
+        errors["description"] = "Skriv kort hva inntekten gjelder."
+
+    try:
+        total_original, total_nok = _parse_nok_amount(total_amount_nok, "Beløp")
+    except ValueError as exc:
+        total_original, total_nok = None, None
+        errors["total_amount_nok"] = str(exc)
+
+    if income_vat not in {item["value"] for item in SIMPLE_INCOME_VAT_OPTIONS}:
+        errors["income_vat"] = "Velg om inntekten har MVA eller ikke."
+    if settlement not in SIMPLE_INCOME_SETTLEMENT_ACCOUNTS:
+        errors["settlement"] = "Velg om pengene er kommet inn eller ikke."
+
+    lines: list[dict[str, object]] = []
+    if not errors and total_nok is not None:
+        settlement_account = SIMPLE_INCOME_SETTLEMENT_ACCOUNTS[settlement]
+        settlement_description = "Innbetalt" if settlement == "paid_now" else "Kundefordring"
+        lines.append(
+            {
+                "account_no": settlement_account,
+                "debit_nok": total_nok,
+                "credit_nok": 0,
+                "description": settlement_description,
+            }
+        )
+
+        if income_vat == "none":
+            lines.append(
+                {
+                    "account_no": "3100",
+                    "debit_nok": 0,
+                    "credit_nok": total_nok,
+                    "description": description.strip(),
+                }
+            )
+        else:
+            split = _split_total_with_vat(total_nok, rate_percent=25)
+            if split is None:
+                errors["total_amount_nok"] = (
+                    "Beløpet kan ikke deles i hele kroner med 25 % MVA i denne enkle visningen. "
+                    "Bruk avansert bilag for dette beløpet."
+                )
+            else:
+                sales_base_nok, vat_nok = split
+                lines.extend(
+                    [
+                        {
+                            "account_no": "3000",
+                            "debit_nok": 0,
+                            "credit_nok": sales_base_nok,
+                            "description": description.strip(),
+                            "vat_mva_code": "3",
+                            "vat_rate": 0.25,
+                            "vat_base_nok": sales_base_nok,
+                            "vat_amount_nok": vat_nok,
+                        },
+                        {
+                            "account_no": "2710",
+                            "debit_nok": 0,
+                            "credit_nok": vat_nok,
+                            "description": "Utgående MVA",
+                        },
+                    ]
+                )
+
+    if not errors:
+        rounding_note = _rounding_note("Beløpet", total_original, total_nok)
+        voucher_description = _append_note(description, rounding_note)
+        try:
+            bilag_id = await save_bilag(attachment, actor)
+            voucher_id = ledger.create_voucher(
+                actor=actor,
+                voucher_type="manual",
+                document_date=entry_date,
+                posting_date=entry_date,
+                counterparty_name=customer,
+                counterparty_id="",
+                currency="NOK",
+                description=voucher_description,
+                bilag_id=bilag_id,
+                lines=lines,
+                series="A",
+                status="posted",
+            )
+            return RedirectResponse(f"/vouchers/{voucher_id}", status_code=303)
+        except ledger.LedgerError as exc:
+            errors["ledger"] = str(exc)
+
+    return _render_simple_income_form(request, form_data=form_data, errors=errors, status_code=422)
+
+
+@app.get("/register/expense", response_class=HTMLResponse)
+def register_expense_page(request: Request) -> HTMLResponse:
+    return _render_simple_expense_form(request, form_data=_simple_expense_defaults(), errors={})
+
+
+@app.post("/register/expense", response_class=HTMLResponse)
+async def register_expense_submit(
+    request: Request,
+    entry_date: str = Form(..., alias="date"),
+    vendor: str = Form(...),
+    description: str = Form(...),
+    total_amount_nok: str = Form(...),
+    vat_amount_nok: str = Form(""),
+    expense_account: str = Form("5000"),
+    settlement: str = Form("paid_now"),
+    attachment: UploadFile | None = File(default=None),
+) -> HTMLResponse:
+    form_data = {
+        "date": entry_date,
+        "vendor": vendor,
+        "description": description,
+        "total_amount_nok": total_amount_nok,
+        "vat_amount_nok": vat_amount_nok,
+        "expense_account": expense_account,
+        "settlement": settlement,
+    }
+    errors: dict[str, str] = {}
+    actor = current_actor(request)
+
+    try:
+        date.fromisoformat(entry_date)
+    except ValueError:
+        errors["date"] = "Dato må være på formatet ÅÅÅÅ-MM-DD."
+
+    if not vendor.strip():
+        errors["vendor"] = "Skriv hvem du betalte til."
+    if not description.strip():
+        errors["description"] = "Skriv kort hva du kjøpte."
+
+    try:
+        total_original, total_nok = _parse_nok_amount(total_amount_nok, "Totalt betalt")
+    except ValueError as exc:
+        total_original, total_nok = None, None
+        errors["total_amount_nok"] = str(exc)
+
+    try:
+        vat_original, vat_nok = _parse_optional_nok_amount(vat_amount_nok, "MVA-beløp")
+    except ValueError as exc:
+        vat_original, vat_nok = None, None
+        errors["vat_amount_nok"] = str(exc)
+
+    if expense_account not in SIMPLE_EXPENSE_ACCOUNT_LABELS:
+        errors["expense_account"] = "Velg typen utgift."
+    if settlement not in SIMPLE_EXPENSE_SETTLEMENT_ACCOUNTS:
+        errors["settlement"] = "Velg om utgiften er betalt eller ikke."
+    if total_nok is not None and vat_nok is not None and vat_nok >= total_nok:
+        errors["vat_amount_nok"] = "MVA-beløpet må være mindre enn totalbeløpet."
+
+    lines = []
+    if not errors and total_nok is not None:
+        cost_nok = total_nok - (vat_nok or 0)
+        if cost_nok <= 0:
+            errors["total_amount_nok"] = "Kostnaden uten MVA må være større enn 0."
+        else:
+            lines.append(
+                {
+                    "account_no": expense_account,
+                    "debit_nok": cost_nok,
+                    "credit_nok": 0,
+                    "description": description.strip(),
+                }
+            )
+            if vat_nok:
+                lines.append(
+                    {
+                        "account_no": "2720",
+                        "debit_nok": vat_nok,
+                        "credit_nok": 0,
+                        "description": "Inngående MVA",
+                        "vat_mva_code": "81",
+                        "vat_rate": 0.25,
+                        "vat_base_nok": cost_nok,
+                        "vat_amount_nok": vat_nok,
+                    }
+                )
+            lines.append(
+                {
+                    "account_no": SIMPLE_EXPENSE_SETTLEMENT_ACCOUNTS[settlement],
+                    "debit_nok": 0,
+                    "credit_nok": total_nok,
+                    "description": "Betalt" if settlement == "paid_now" else "Leverandørgjeld",
+                }
+            )
+
+    if not errors:
+        rounding_note = _combine_notes(
+            _rounding_note("Beløpet", total_original, total_nok),
+            _rounding_note("MVA", vat_original, vat_nok),
+        )
+        voucher_description = _append_note(description, rounding_note)
+        try:
+            bilag_id = await save_bilag(attachment, actor)
+            voucher_id = ledger.create_voucher(
+                actor=actor,
+                voucher_type="manual",
+                document_date=entry_date,
+                posting_date=entry_date,
+                counterparty_name=vendor,
+                counterparty_id="",
+                currency="NOK",
+                description=voucher_description,
+                bilag_id=bilag_id,
+                lines=lines,
+                series="A",
+                status="posted",
+            )
+            return RedirectResponse(f"/vouchers/{voucher_id}", status_code=303)
+        except ledger.LedgerError as exc:
+            errors["ledger"] = str(exc)
+
+    return _render_simple_expense_form(request, form_data=form_data, errors=errors, status_code=422)
 
 
 @app.get("/vouchers", response_class=HTMLResponse)
